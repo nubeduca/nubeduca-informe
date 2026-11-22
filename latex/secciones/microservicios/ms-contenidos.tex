@@ -2,10 +2,60 @@
 \label{sec:ms-contenidos}
 \textit{Responsable: Alexander (CON-01, CON-02). Repositorio: \url{https://github.com/nubeduca/nubeduca-ms-contenidos}.}
 
-\pendiente{Dos o tres párrafos: qué resuelve este microservicio, decisiones de diseño y qué roles (STUDENT, TEACHER, ADMIN) usan cada operación.}
+ms-contenidos guarda el material de cada curso. Tiene dos partes. \textbf{Archivos (CON-01):} los
+docentes suben material (\texttt{CONTENT}) y los alumnos suben sus entregas (\texttt{SUBMISSION}) a un
+bucket privado de S3, y cada archivo pasa por un antivirus antes de que alguien lo pueda descargar o
+entregar. \textbf{Módulos (CON-02):} el docente organiza el curso en módulos con ítems de tres tipos
+(página en Markdown, archivo o enlace) y los publica cuando están listos; los alumnos solo ven los
+módulos publicados.
+
+Decisiones de diseño:
+\begin{itemize}
+  \item \textbf{El binario nunca pasa por Lambda.} La API devuelve una URL prefirmada de S3 (15 minutos
+        para subir, 5 para descargar). Así se evitan el límite de 6\,MB del cuerpo de Lambda y el costo
+        de pasar el archivo por API Gateway; el límite por archivo es 50\,MB.
+  \item \textbf{Permisos por proyecciones, sin llamar a ms-cursos.} El servicio consume
+        \texttt{course.created} (dueño del curso) y \texttt{enrollment.created/dropped} (quién es
+        miembro y con qué rol) y guarda una copia mínima en su tabla.
+  \item \textbf{Una sola tabla y una sola consulta por módulo.} Los ítems de un módulo van debajo de su
+        clave (\texttt{MODULE\#<courseId>\#<moduleId>\#ITEM\#<itemId>}), así que una consulta por
+        prefijo trae el módulo completo o todos los módulos del curso.
+  \item \textbf{Escrituras condicionales.} Agregar un ítem usa una condición sobre \texttt{itemCount}
+        (dos ítems simultáneos no quedan en la misma posición) y, si es un archivo, comprueba en la
+        misma transacción que siga \texttt{CLEAN}. Publicar un módulo guarda el cambio y el evento en
+        la misma transacción (outbox).
+\end{itemize}
+
+Roles: \textbf{TEACHER} (dueño del curso o matriculado como TEACHER) sube material y crea, edita y
+publica módulos; \textbf{STUDENT} sube sus entregas y ve los módulos publicados de sus cursos;
+\textbf{ADMIN} del tenant puede ver todo y subir archivos, pero el contrato no le da escritura sobre los
+módulos. Una entrega solo la ven quien la subió y los docentes del curso.
 
 \subsubsection{Endpoints}
-\pendiente{Tabla con método, ruta, roles y evento que emite. Sale del OpenAPI del microservicio en la carpeta \texttt{apis/} de \texttt{nubeduca-contratos} (campos \texttt{x-roles} y \texttt{x-emits}).}
+\begin{table}[htbp]
+\centering\footnotesize
+\begin{tabularx}{\textwidth}{lXll}
+\toprule
+Método & Ruta & Roles & Emite \\
+\midrule
+GET   & \texttt{/health} & pública & --- \\
+POST  & \texttt{/files} & todos & --- \\
+GET   & \texttt{/files/\{fileId\}} & todos & --- \\
+GET   & \texttt{/files/\{fileId\}/download} & todos & --- \\
+GET   & \texttt{/courses/\{courseId\}/modules} & todos & --- \\
+POST  & \texttt{/courses/\{courseId\}/modules} & TEACHER & --- \\
+GET   & \texttt{/courses/\{courseId\}/modules/\{moduleId\}} & todos & --- \\
+PATCH & \texttt{/courses/\{courseId\}/modules/\{moduleId\}} & TEACHER & --- \\
+POST  & \texttt{/courses/\{courseId\}/modules/\{moduleId\}/items} & TEACHER & --- \\
+POST  & \texttt{/courses/\{courseId\}/modules/\{moduleId\}/publish} & TEACHER & \texttt{module.published} \\
+\bottomrule
+\end{tabularx}
+\caption{Endpoints de ms-contenidos (\texttt{apis/ms-contenidos.openapi.yaml}); \textit{todos} = STUDENT, TEACHER y ADMIN. \texttt{file.scanned}
+lo publica la Lambda de antivirus, no una ruta.}
+\end{table}
+
+Todas las rutas menos \texttt{/health} llevan el authorizer de Cognito cuando el servicio se despliega con
+\texttt{authMode=cognito} (REL-02).
 
 \subsubsection{Eventos}
 \textbf{Publica:}
@@ -21,22 +71,150 @@
   \item \texttt{lms.courses.enrollment.dropped.v1}
 \end{itemize}
 
-\pendiente{Alexander: explicar el flujo de archivos (URL prefirmada, evento de S3, Lambda de antivirus, estados CLEAN/INFECTED) y el bucket usado.}
+\paragraph{Flujo de un archivo.}
+\begin{enumerate}
+  \item El navegador pide \texttt{POST /files} con el curso, el propósito, el nombre, el tipo y el
+        tamaño. La Lambda crea el ítem \texttt{FILE\#<fileId>} en \texttt{PENDING\_UPLOAD} y devuelve una
+        URL prefirmada de \texttt{PUT}.
+  \item El navegador sube el archivo directo al bucket privado
+        \texttt{nubeduca-<stage>-contenidos-<cuenta>}, en \texttt{archivos/<tenantId>/<fileId>}. El
+        bucket bloquea el acceso público y cifra con AES-256.
+  \item El evento \texttt{s3:ObjectCreated} dispara la Lambda de antivirus, que marca el archivo
+        \texttt{PENDING\_SCAN} y lo lee por bloques de 1\,MB. Busca la firma EICAR en cualquier parte del
+        archivo y compara el SHA-256 con una lista de bloqueados. También rechaza un archivo que no mide
+        lo que se declaró o que pasa de 50\,MB.
+  \item El resultado queda en \texttt{CLEAN} o \texttt{INFECTED}. Un archivo infectado se borra de S3.
+        El cambio de estado y \texttt{file.scanned} se guardan en la misma transacción (outbox), y
+        ms-evaluaciones solo acepta entregas con archivos \texttt{CLEAN}.
+  \item \texttt{GET /files/\{fileId\}/download} da una URL prefirmada de 5 minutos, o 409 si el archivo
+        no está \texttt{CLEAN}.
+\end{enumerate}
+El escáner es liviano y sin dependencias para que corra en Lambda con el \texttt{LabRole}, sin capas ni
+imágenes. Está detrás de la función \texttt{escanear(bloques)}, así que se puede cambiar por ClamAV sin
+tocar el resto. S3 puede repetir el evento: si el mismo contenido (ETag) ya se escaneó, no se publica de
+nuevo; si alguien vuelve a subir otro contenido con la URL todavía vigente, se escanea otra vez.
 
 \subsubsection{Estructura JSON de la tabla \texttt{<stage>-t\_contenidos}}
-Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}.
+Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}. Además de los ítems
+\texttt{EVENTO\#}, \texttt{INBOX\#} y \texttt{AGG\#} de la plantilla, guarda:
 
-\begin{lstlisting}
+\begin{table}[htbp]
+\centering\small
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\texttt{sk} & Qué es \\
+\midrule
+\texttt{FILE\#<fileId>} & Archivo: propósito, estado y datos del escaneo \\
+\texttt{MODULE\#<courseId>\#<moduleId>} & Módulo: título, posición, estado y cantidad de ítems \\
+\texttt{MODULE\#<courseId>\#<moduleId>\#ITEM\#<itemId>} & Ítem de un módulo: \texttt{PAGE}, \texttt{FILE} o \texttt{LINK} \\
+\texttt{PROY\#COURSE\#<courseId>} & Proyección de \texttt{course.created}: dueño del curso \\
+\texttt{PROY\#ENROLL\#<courseId>\#<userId>} & Proyección de \texttt{enrollment.created}: rol en el curso \\
+\bottomrule
+\end{tabularx}
+\caption{Prefijos de \texttt{sk} en \texttt{<stage>-t\_contenidos}.}
+\end{table}
+
+\begin{lstlisting}[caption={Archivo escaneado (\texttt{FILE\#})}]
 {
   "tenant_id": "utec",
-  "sk": "<PREFIJO>#<id>",
-  "...": "completar con un ítem real de la tabla"
+  "sk": "FILE#fil_01JCQRZHQT9F4WY2JYPDV546K7",
+  "entidad": "FILE",
+  "version": 2,
+  "fileId": "fil_01JCQRZHQT9F4WY2JYPDV546K7",
+  "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7",
+  "purpose": "SUBMISSION",
+  "fileName": "lab4.pdf",
+  "contentType": "application/pdf",
+  "sizeBytes": 1234,
+  "status": "CLEAN",
+  "ownerId": "a18577e2-e005-4a49-a29e-755dbf08f5b6",
+  "createdAt": "2026-11-16T15:00:00Z",
+  "s3Key": "archivos/utec/fil_01JCQRZHQT9F4WY2JYPDV546K7",
+  "scannedAt": "2026-11-16T15:00:04Z",
+  "scannedEtag": "\"9b2cf535f27731c974343645a3985328\"",
+  "scannedBytes": 1234,
+  "scanSignature": "-"
 }
 \end{lstlisting}
-\pendiente{Reemplazar por un ítem real de cada tipo que guarda la tabla (por ejemplo con \texttt{aws dynamodb scan --table-name dev-t\_contenidos --max-items 1}). Una tabla con los prefijos de \texttt{sk} y un bloque JSON por tipo de ítem.}
+
+\begin{lstlisting}[caption={Módulo publicado (\texttt{MODULE\#})}]
+{
+  "tenant_id": "utec",
+  "sk": "MODULE#crs_01JCQRZHQT9F4WY2JYPDV546K7#mod_01JCJ68VGB8BCT89QZZ38VTKYP",
+  "entidad": "MODULE",
+  "version": 5,
+  "moduleId": "mod_01JCJ68VGB8BCT89QZZ38VTKYP",
+  "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7",
+  "title": "Semana 3: Serverless",
+  "position": 3,
+  "status": "PUBLISHED",
+  "itemCount": 3,
+  "createdBy": "c62d9930-b473-4b1d-adec-72fdda7cf599",
+  "createdAt": "2026-11-10T15:00:00Z",
+  "publishedAt": "2026-11-10T15:20:00Z",
+  "publishedBy": "c62d9930-b473-4b1d-adec-72fdda7cf599"
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ítem de tipo archivo (\texttt{MODULE\#...\#ITEM\#}); una página lleva \texttt{body} y un enlace \texttt{url}}]
+{
+  "tenant_id": "utec",
+  "sk": "MODULE#crs_01JCQRZHQT9F4WY2JYPDV546K7#mod_01JCJ68VGB8BCT89QZZ38VTKYP#ITEM#itm_01JCQRZHQT9F4WY2JYPDV546K7",
+  "entidad": "MODULE_ITEM",
+  "moduleId": "mod_01JCJ68VGB8BCT89QZZ38VTKYP",
+  "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7",
+  "itemId": "itm_01JCQRZHQT9F4WY2JYPDV546K7",
+  "type": "FILE",
+  "title": "Laboratorio 4",
+  "fileId": "fil_01JCQRZHQT9F4WY2JYPDV546K7",
+  "position": 2,
+  "createdBy": "c62d9930-b473-4b1d-adec-72fdda7cf599",
+  "createdAt": "2026-11-10T15:10:00Z"
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Proyecciones de ms-cursos (\texttt{PROY\#COURSE\#} y \texttt{PROY\#ENROLL\#})}]
+{"tenant_id": "utec", "sk": "PROY#COURSE#crs_01JCQRZHQT9F4WY2JYPDV546K7", "entidad": "PROYECCION",
+ "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7", "ownerId": "c62d9930-b473-4b1d-adec-72fdda7cf599"}
+
+{"tenant_id": "utec", "sk": "PROY#ENROLL#crs_01JCQRZHQT9F4WY2JYPDV546K7#a18577e2-e005-4a49-a29e-755dbf08f5b6",
+ "entidad": "PROYECCION", "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7",
+ "userId": "a18577e2-e005-4a49-a29e-755dbf08f5b6", "enrollmentId": "enr_01JC5F0KPBVF7HK1VV8H23JGMW",
+ "role": "STUDENT"}
+\end{lstlisting}
 
 \subsubsection{Datos de prueba}
-\pendiente{Evidencia de los 30\,000 registros (UTEC 15\,000, UPC 10\,000, PUCP 5\,000): salida de \texttt{poblar\_datos.py} o un conteo por tenant con \texttt{aws dynamodb query ... --select COUNT}.}
+\texttt{scripts/poblar\_datos.py --stage <stage>} carga 30\,000 módulos en la tabla principal, cada uno
+con una página (70\,\% \texttt{PUBLISHED}, 30\,\% \texttt{DRAFT}). Usa los mismos cursos y docentes que el
+seed de ms-cursos (\texttt{crs\_<n>} y el mismo docente dueño), así los docentes de seed ven sus módulos
+sin esperar \texttt{course.created}. No escribe ítems \texttt{EVENTO\#} (no inunda el bus) y es
+idempotente.
+
+Corrida del 17-Nov-2026 en \texttt{dev} (9\,min 38\,s), con el conteo hecho después sobre la tabla:
+
+\begin{table}[htbp]
+\centering\small
+\begin{tabular}{lrr}
+\toprule
+Tenant & Módulos de seed & \texttt{module.published} del seed \\
+\midrule
+utec & 15\,000 & 0 \\
+upc  & 10\,000 & 0 \\
+pucp &  5\,000 & 0 \\
+\midrule
+\textbf{Total} & \textbf{30\,000} & \textbf{0} \\
+\bottomrule
+\end{tabular}
+\caption{Seed de ms-contenidos en \texttt{dev-t\_contenidos}.}
+\end{table}
 
 \subsubsection{Resultados y evidencias}
-\evidencia{ms-contenidos-evidencia.png}{ms-contenidos: prueba funcional (por ejemplo, una llamada en Postman o una captura del frontend).}{fig:ms-contenidos}
+65 pruebas con moto (archivos, antivirus, módulos, consumidores, esquemas y seed). Además se probó
+desplegado en AWS con una prueba de punta a punta: un PDF limpio queda \texttt{CLEAN} y se descarga
+idéntico; el archivo EICAR queda \texttt{INFECTED}, se borra de S3 y su descarga da 409; un módulo con
+página, archivo y enlace se publica y \texttt{module.published} llega al bus. Con
+\texttt{authMode=cognito}, un token mock, un JWT inventado o el \textit{access token} reciben 401 en API
+Gateway.
+
+\evidencia{ms-contenidos-evidencia.png}{ms-contenidos: prueba de punta a punta de CON-01 contra AWS
+(stage \texttt{dev}, 17-Nov-2026): antivirus, descarga y \texttt{file.scanned} en el bus.}{fig:ms-contenidos}

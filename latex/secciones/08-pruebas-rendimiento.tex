@@ -8,14 +8,67 @@ tenant, validación del cuerpo, idempotencia del consumidor y el recorrido del e
 (outbox $\rightarrow$ Stream $\rightarrow$ bus $\rightarrow$ regla $\rightarrow$ cola). La plantilla de
 servicio trae 15 pruebas base. También se puede probar en local con LocalStack (LOC-01).
 
-\pendiente{Cada dueño: número de pruebas de su microservicio. Nota: a fines de noviembre algunas
-pruebas fallan en CI por la versión nueva de moto (\texttt{DescribeStream: Not yet implemented});
-indicar si se fijó la versión.}
+\begin{itemize}
+  \item \textbf{ms-contenidos:} 65 pruebas (archivos y antivirus, módulos, consumidores, esquemas y
+        seed).
+  \item \textbf{ms-calificaciones:} 63 pruebas en total, de las cuales las de la auditoría (DAT-01) cubren
+        el registro de cada \texttt{grade.changed}, duplicados, eventos en desorden, eventos inválidos,
+        aislamiento por tenant y permisos del historial.
+\end{itemize}
+Las pruebas que leen el Stream fallaban con \texttt{boto3}/\texttt{botocore} 1.44.4 y moto 5.2.5
+(\texttt{DescribeStream: Not yet implemented}). En ms-contenidos y ms-calificaciones se fijó
+\texttt{boto3<1.44.4} y \texttt{botocore<1.44.4} en \texttt{requirements-dev.txt}.
+
+\pendiente{Los demás dueños: número de pruebas de su microservicio e indicar si fijaron la versión.}
 
 \subsection{Prueba de punta a punta del curso piloto (QA-01)}
-\pendiente{Resultado del recorrido con 2 tenants (UTEC y UPC): contenido $\rightarrow$ tarea
-$\rightarrow$ entrega $\rightarrow$ nota $\rightarrow$ aviso. Ver \texttt{qa/piloto.py} en
-\texttt{nubeduca-backend}.}
+\textit{Responsable: Alexander.}
+
+\texttt{qa/piloto.py} en \texttt{nubeduca-backend} recorre el curso piloto completo en un stage
+desplegado, \textbf{con dos tenants a la vez} (por defecto UTEC y UPC), usando solo las APIs públicas, como
+el frontend. Las URLs salen de SSM y los efectos que viajan por eventos se esperan hasta 90\,s cada uno.
+El guion está en \texttt{qa/README.md}.
+
+\begin{table}[htbp]
+\centering\small
+\begin{tabularx}{\textwidth}{rXl}
+\toprule
+\# & Paso & Prueba \\
+\midrule
+1 & Perfiles de admin, docente y alumno & ms-usuarios \\
+2 & El admin abre y activa un periodo & \texttt{term.started} $\rightarrow$ ms-cursos \\
+3--6 & Curso, matrículas, curso publicado y anuncio & ms-cursos \\
+7 & Módulo con un PDF escaneado; el alumno lo ve y lo descarga & ms-contenidos (CON-01/02) \\
+8 & Tarea publicada & ms-evaluaciones (EVA-01) \\
+9 & Entrega con un EICAR (409) y entrega con un PDF limpio & antivirus $\rightarrow$ ms-evaluaciones \\
+10 & Calificación 15/20 en DRAFT; el alumno todavía no la ve & ms-calificaciones (EVA-02) \\
+11 & Nota publicada; el alumno ve 15/20 & \texttt{grade.posted} \\
+12 & Ajuste a 17 con motivo; historial \texttt{GRADED} y \texttt{MANUAL\_OVERRIDE} & auditoría (DAT-01) \\
+13 & El alumno tiene los 6 avisos del curso & ms-notificaciones (ENG-01) \\
+\bottomrule
+\end{tabularx}
+\caption{Pasos de QA-01 en cada tenant.}
+\end{table}
+
+Al final, el docente, el alumno y el admin de cada tenant piden el curso, los módulos, el archivo, la
+tarea, el libro de notas y el historial de la nota del \textbf{otro} tenant: todos deben responder 403 o
+404.
+
+\paragraph{Resultado.} El 21-Nov-2026 se desplegó la plataforma completa con
+\texttt{desplegar.sh staging --sin-frontend} en el Learner Lab de Dev 5 (infra/base, bus y auth, y los 6
+microservicios desde \texttt{main}, con \texttt{/health} 200 en todos):
+
+\begin{lstlisting}
+$ python qa/piloto.py --stage staging
+...
+RESULTADO: 38/38 pasos OK
+\end{lstlisting}
+
+Pasó en tres corridas seguidas: 13 pasos por tenant en UTEC y UPC, más 12 comprobaciones de aislamiento.
+Después de las corridas, \texttt{verificar\_alarmas.sh staging} dio las 9 alarmas de DLQ en OK.
+
+\pendiente{Correr \texttt{qa/piloto.py --stage staging} en la cuenta de integración (D2) cuando se defina, y
+también con \texttt{--auth cognito}, y actualizar este resultado.}
 
 \subsection{Prueba de carga (PERF-01)}
 \texttt{perf/k6/carga\_cursos.js} (k6) lista cursos y abre uno, repartiendo las peticiones entre
