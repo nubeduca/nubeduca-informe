@@ -25,6 +25,12 @@
         devuelve el 401 de API Gateway sin cabeceras CORS. Lo que hizo inmutable la auditoría y seguro
         el login solo se pudo confirmar desplegando en AWS e intentando, con las credenciales reales,
         lo que no se debería poder hacer.
+  \item (Edinson) Fijar las versiones de las dependencias de prueba. El 21 de noviembre la CI de
+        ms-usuarios, ms-cursos y la plantilla se puso en rojo sin cambios en el código: una versión
+        nueva de boto3/botocore (1.44.4) dejó a moto sin soporte para \texttt{DescribeStream}. Como
+        \texttt{requirements-dev.txt} no fijaba versiones, la CI instalaba siempre la última. Se
+        resolvió fijando \texttt{boto3} y \texttt{botocore} por debajo de 1.44.4; fijar solo moto no
+        bastaba, porque el cambio venía de boto3.
 \end{itemize}
 
 \pendiente{Que cada integrante aporte una lección de su parte.}

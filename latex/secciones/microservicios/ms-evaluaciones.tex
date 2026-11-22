@@ -155,7 +155,9 @@ pucp: 5000 entregas
 Total: 30000 entregas en dev-t_evaluaciones
 \end{lstlisting}
 
-El conteo de los ítems \texttt{SUBMIT\#} por tenant en la tabla desplegada, con \texttt{aws dynamodb query ... --select COUNT}, confirma UTEC 15\,000, UPC 10\,000 y PUCP 5\,000.
+El conteo de los ítems \texttt{SUBMIT\#} por tenant en la tabla desplegada, con \texttt{aws dynamodb query ... --select COUNT}, confirma UTEC 15\,000, UPC 10\,000 y PUCP 5\,000 (figura~\ref{fig:ms-evaluaciones-datos}).
+
+\evidencia{ms-evaluaciones-datos.png}{ms-evaluaciones: conteo de entregas por tenant en \texttt{dev-t\_evaluaciones}, en el orden utec, upc y pucp.}{fig:ms-evaluaciones-datos}
 
 \subsubsection{Resultados y evidencias}
 \evidencia{ms-evaluaciones-evidencia.png}{ms-evaluaciones desplegado en AWS: \texttt{GET /assignments/\{assignmentId\}/submissions} como docente de UTEC devuelve 200 con las entregas del seed (\texttt{SUBMITTED} y \texttt{GRADED}).}{fig:ms-evaluaciones}
