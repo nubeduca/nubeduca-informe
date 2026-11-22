@@ -34,23 +34,23 @@ módulos. Una entrega solo la ven quien la subió y los docentes del curso.
 \subsubsection{Endpoints}
 \begin{table}[htbp]
 \centering\footnotesize
-\begin{tabularx}{\textwidth}{ll>{\raggedright\arraybackslash}Xl}
+\begin{tabularx}{\textwidth}{lXll}
 \toprule
 Método & Ruta & Roles & Emite \\
 \midrule
 GET   & \texttt{/health} & pública & --- \\
-POST  & \texttt{/files} & STUDENT, TEACHER, ADMIN & --- \\
-GET   & \texttt{/files/\{fileId\}} & STUDENT, TEACHER, ADMIN & --- \\
-GET   & \texttt{/files/\{fileId\}/download} & STUDENT, TEACHER, ADMIN & --- \\
-GET   & \texttt{/courses/\{courseId\}/modules} & STUDENT, TEACHER, ADMIN & --- \\
+POST  & \texttt{/files} & todos & --- \\
+GET   & \texttt{/files/\{fileId\}} & todos & --- \\
+GET   & \texttt{/files/\{fileId\}/download} & todos & --- \\
+GET   & \texttt{/courses/\{courseId\}/modules} & todos & --- \\
 POST  & \texttt{/courses/\{courseId\}/modules} & TEACHER & --- \\
-GET   & \texttt{/courses/\{courseId\}/modules/\{moduleId\}} & STUDENT, TEACHER, ADMIN & --- \\
+GET   & \texttt{/courses/\{courseId\}/modules/\{moduleId\}} & todos & --- \\
 PATCH & \texttt{/courses/\{courseId\}/modules/\{moduleId\}} & TEACHER & --- \\
 POST  & \texttt{/courses/\{courseId\}/modules/\{moduleId\}/items} & TEACHER & --- \\
 POST  & \texttt{/courses/\{courseId\}/modules/\{moduleId\}/publish} & TEACHER & \texttt{module.published} \\
 \bottomrule
 \end{tabularx}
-\caption{Endpoints de ms-contenidos (\texttt{apis/ms-contenidos.openapi.yaml}). \texttt{file.scanned}
+\caption{Endpoints de ms-contenidos (\texttt{apis/ms-contenidos.openapi.yaml}); \textit{todos} = STUDENT, TEACHER y ADMIN. \texttt{file.scanned}
 lo publica la Lambda de antivirus, no una ruta.}
 \end{table}
 
