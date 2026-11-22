@@ -1,0 +1,62 @@
+\subsection{ms-cursos --- Cursos, secciones, matrícula y anuncios}
+\label{sec:ms-cursos}
+\textit{Responsable: Benjamín y Edinson (ACA-03, ACA-04, COL-01). Repositorio: \url{https://github.com/nubeduca/nubeduca-ms-cursos}.}
+
+\pendiente{Dos o tres párrafos: qué resuelve este microservicio, decisiones de diseño y qué roles (STUDENT, TEACHER, ADMIN) usan cada operación.}
+
+\subsubsection{Endpoints}
+\pendiente{Tabla con método, ruta, roles y evento que emite. Sale del OpenAPI del microservicio en la carpeta \texttt{apis/} de \texttt{nubeduca-contratos} (campos \texttt{x-roles} y \texttt{x-emits}).}
+
+\subsubsection{Eventos}
+\textbf{Publica:}
+\begin{itemize}
+  \item \texttt{lms.courses.course.created.v1}
+  \item \texttt{lms.courses.course.published.v1}
+  \item \texttt{lms.courses.course.archived.v1}
+  \item \texttt{lms.courses.enrollment.created.v1}
+  \item \texttt{lms.courses.enrollment.dropped.v1}
+  \item \texttt{lms.courses.announcement.published.v1}
+\end{itemize}
+
+\textbf{Consume:}
+\begin{itemize}
+  \item \texttt{lms.users.term.started.v1}
+  \item \texttt{lms.users.user.provisioned.v1}
+\end{itemize}
+
+\paragraph{Hallazgo de la prueba de carga (PERF-01).}
+\texttt{GET /courses} hace \texttt{query} de toda la partición del tenant y filtra \texttt{ownerId} con
+\texttt{FilterExpression}, sin índice: con el seed de 30\,000 tarda unos 1{,}7\,s (p95 1{,}84\,s)
+incluso con un usuario, mientras que \texttt{GET /courses/\{courseId\}} responde en 43\,ms (p95). Un
+GSI por \texttt{ownerId} lo dejaría en decenas de milisegundos (sección~\ref{sec:pruebas}).
+
+\pendiente{Benjamín/Edinson: indicar si se agregó el índice y, si es así, la latencia nueva.}
+
+\subsubsection{Estructura JSON de la tabla \texttt{<stage>-t\_cursos}}
+Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}.
+
+\begin{lstlisting}
+{
+  "tenant_id": "utec",
+  "sk": "COURSE#crs_00000000000000000000000020",
+  "courseId": "crs_00000000000000000000000020",
+  "termId": "trm_0000000000000000000000SEED",
+  "code": "SEED-00020",
+  "title": "Cloud Computing 3",
+  "description": "Curso de seed para pruebas de carga.",
+  "status": "PUBLISHED",
+  "ownerId": "3651db88-79cd-5df8-bd8c-488941b6e878",
+  "createdAt": "2026-08-17T13:00:00Z",
+  "seed": true
+}
+\end{lstlisting}
+\pendiente{Confirmar con un ítem real (\texttt{aws dynamodb scan --table-name dev-t\_cursos --max-items 1}) y agregar los demás tipos de ítem de la tabla.}
+
+\subsubsection{Datos de prueba}
+El 20-Nov-2026, en la cuenta de Dev 2 (stage \texttt{dev}), \texttt{python3 scripts/poblar\_datos.py --stage dev}
+cargó \textbf{30\,000 cursos} en \texttt{dev-t\_cursos}: UTEC 15\,000, UPC 10\,000 y PUCP 5\,000. Cada tenant
+recibe un periodo activo de seed y 20 docentes de seed; los estados quedan en 60\,\% PUBLISHED, 30\,\% DRAFT y
+10\,\% ARCHIVED. Un conteo de los ítems \texttt{COURSE\#} de UTEC devolvió 15\,000.
+
+\subsubsection{Resultados y evidencias}
+\evidencia{ms-cursos-evidencia.png}{ms-cursos: prueba funcional (por ejemplo, una llamada en Postman o una captura del frontend).}{fig:ms-cursos}

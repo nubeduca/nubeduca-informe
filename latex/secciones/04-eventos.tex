@@ -1,0 +1,78 @@
+\section{Arquitectura orientada a eventos}
+\label{sec:eventos}
+\textit{Responsables: Mariano (bus y mensajería, PLT-04) y Benjamín (catálogo de eventos, ARQ-01).}
+
+\subsection{Catálogo y contratos}
+El MVP usa 16 eventos con el formato \texttt{lms.<contexto>.<entidad>.<hecho>.v<N>}. Sus esquemas
+(JSON Schema Draft-04), un ejemplo de cada uno y los contratos OpenAPI de los seis microservicios viven
+en el repositorio \texttt{nubeduca-contratos}, que es la fuente de verdad. El \texttt{detail} de cada
+evento tiene siempre la forma \texttt{\{"metadata": \{...\}, "data": \{...\}\}}; \texttt{metadata}
+lleva \texttt{eventId}, \texttt{tenantId}, \texttt{occurredAt}, \texttt{aggregateType},
+\texttt{aggregateId}, \texttt{aggregateVersion}, \texttt{actorId} y, en los eventos de un curso,
+\texttt{courseId}. Los eventos llevan \textit{payload} mínimo: ids y lo que cambió, sin nombres ni
+correos.
+
+La CI de \texttt{nubeduca-contratos} valida en cada PR que cada evento del catálogo tenga esquema y
+ejemplo, que cada ejemplo cumpla su esquema, y compara cada esquema contra \texttt{main} para marcar en
+rojo los cambios incompatibles (PLT-02). Como el Learner Lab bloquea EventBridge Schema Registry
+(sección~\ref{sec:limitaciones}), esta validación en CI lo reemplaza.
+
+\pendiente{Benjamín: agregar la tabla de los 16 eventos (productor, consumidores y canal) desde
+\texttt{eventos/catalogo.yaml}.}
+
+\subsection{Bus y mensajería (PLT-04)}
+El stack \texttt{infra/bus} del repositorio \texttt{nubeduca-backend} crea por stage:
+\begin{itemize}
+  \item El bus de EventBridge \texttt{lms-<stage>}, con un Archive de 7 días para reprocesar eventos.
+        Su nombre queda en el parámetro SSM \texttt{/nubeduca/<stage>/bus-name}, que cada microservicio
+        lee al desplegar.
+  \item El tópico SNS FIFO \texttt{nubeduca-<stage>-notas.fifo} para \texttt{grade.posted}, con
+        \texttt{MessageGroupId = <tenantId>:<courseId>} y \texttt{MessageDeduplicationId = eventId}, de
+        modo que las notas de un curso llegan en orden.
+  \item Los \textit{exports} de CloudFormation \texttt{nubeduca-<stage>-bus-name}, \texttt{-bus-arn} y
+        \texttt{-notas-topic-arn}.
+\end{itemize}
+Cada consumidor declara en su propio stack una regla del bus, su cola SQS, una DLQ
+(\texttt{maxReceiveCount: 5}) y una alarma de CloudWatch sobre la DLQ. Para eso hay una plantilla en
+\texttt{plantillas/consumidor/}.
+
+\subsection{Outbox transaccional con EventBridge Pipes (ADR-008)}
+La Lambda escribe la entidad y el ítem \texttt{EVENTO\#<eventId>} en una misma
+\texttt{TransactWriteItems}, después de validar el \texttt{detail} contra su esquema. Si el evento no
+cumple el contrato, no se guarda nada. Un EventBridge Pipe lee el DynamoDB Stream de la tabla, deja
+pasar solo los \texttt{INSERT} cuyo \texttt{sk} empieza con \texttt{EVENTO\#} y entrega el evento al
+bus usando los atributos \texttt{source}, \texttt{detailType} y \texttt{detail} del ítem.
+
+Durante GATE-0 se comprobó que \texttt{LabRole} permite crear Pipes con destino al bus. Con eso, el
+equipo decidió en el ADR-008 usar Pipes por defecto (\texttt{outbox: pipe}) en staging y prod, en vez
+de la Lambda relay: es lo que pedía el diseño original, elimina una Lambda por microservicio y no hace
+falta transformar el evento. La Lambda relay sigue disponible como vuelta atrás con
+\texttt{--param="outbox=lambda"}.
+
+\subsection{Consumidores idempotentes}
+La entrega es \textit{at-least-once}. El consumidor guarda \texttt{INBOX\#<eventId>} con escritura
+condicional en la misma transacción que su cambio: si ya existía, descarta el evento como duplicado.
+Además, si la \texttt{aggregateVersion} del evento es menor o igual a la ya vista (ítem
+\texttt{AGG\#}), lo descarta por viejo. El consumidor es tolerante: ignora los campos que no conoce.
+
+\subsection{Resultados y evidencias}
+Verificado de punta a punta en AWS (GATE-0, 20-Nov-2026, cuenta de Dev 2, stage \texttt{dev}) con la
+plantilla de servicio y \texttt{outbox=pipe}:
+\begin{itemize}
+  \item \texttt{POST /examples} guardó \texttt{EXAMPLE\#} y \texttt{EVENTO\#} en la misma transacción
+        (201).
+  \item El Pipe quedó en \texttt{RUNNING} y llevó el evento al bus \texttt{lms-dev}; la Lambda relay
+        no se ejecutó (sin logs).
+  \item La regla lo copió a la cola y el consumidor lo procesó (\texttt{INBOX\#<eventId>}, DLQ en 0).
+  \item Al reenviar el mismo \texttt{eventId} con \texttt{put-events}, el consumidor lo descartó como
+        \texttt{DUPLICADO} y siguió habiendo un solo \texttt{INBOX\#}.
+\end{itemize}
+Dev 1 repitió la prueba en staging con la relay (matrícula de ms-cursos que llega a
+ms-notificaciones) y luego con Pipe. Finalmente, con los seis microservicios reales en staging, los
+cinco Pipes \texttt{nubeduca-ms-*-staging-outbox} quedaron en \texttt{RUNNING}
+(sección~\ref{sec:despliegue}).
+
+\pendiente{Agregar una captura de los logs del consumidor (\texttt{Evento procesado} y
+\texttt{DUPLICADO}) como \texttt{imagenes/gate0-consumidor.png}.}
+\evidencia{gate0-consumidor.png}{GATE-0: el consumidor procesa el evento y descarta el
+duplicado.}{fig:gate0}

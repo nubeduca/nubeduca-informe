@@ -1,0 +1,68 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\AtBeginDocument{\shorthandoff{"}}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{xcolor}
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+\usepackage{listings}
+\setlength{\emergencystretch}{3em}
+
+% Instrucción de redacción: se ve en rojo en el PDF. Borrarla cuando la sección esté completa.
+\newcommand{\pendiente}[1]{\par\noindent\textcolor{red!65!black}{\textbf{Pendiente:} #1}\par}
+
+% Figura que se inserta sola cuando existe el archivo; si falta, muestra un recuadro.
+% Uso: \evidencia{archivo.png}{Pie de figura}{fig:etiqueta}
+\newcommand{\evidencia}[3]{%
+  \begin{figure}[htbp]
+    \centering
+    \IfFileExists{imagenes/#1}{%
+      \includegraphics[width=0.95\linewidth,height=0.65\textheight,keepaspectratio]{imagenes/#1}%
+    }{%
+      \fbox{\parbox{0.90\linewidth}{\centering\textbf{Evidencia pendiente}\par
+      Archivo esperado: \texttt{imagenes/\detokenize{#1}}}}%
+    }
+    \caption{#2}\label{#3}
+  \end{figure}%
+}
+
+% Bloques JSON (estructura de las tablas DynamoDB).
+\lstset{basicstyle=\ttfamily\small, breaklines=true, frame=single, columns=fullflexible,
+  showstringspaces=false, inputencoding=utf8, extendedchars=true,
+  literate={á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1 {ñ}{{\~n}}1}
+
+\begin{document}
+\input{portada}
+\tableofcontents
+\clearpage
+\input{secciones/01-introduccion}
+\clearpage
+\input{secciones/02-arquitectura}
+\clearpage
+\input{secciones/03-microservicios}
+\clearpage
+\input{secciones/04-eventos}
+\clearpage
+\input{secciones/05-seguridad-multitenant}
+\clearpage
+\input{secciones/06-frontend}
+\clearpage
+\input{secciones/07-despliegue-observabilidad}
+\clearpage
+\input{secciones/08-pruebas-rendimiento}
+\clearpage
+\input{secciones/09-limitaciones-learner-lab}
+\clearpage
+\input{secciones/10-repositorios}
+\clearpage
+\input{secciones/11-conclusiones}
+\clearpage
+\appendix
+\input{secciones/anexo-trazabilidad}
+\end{document}

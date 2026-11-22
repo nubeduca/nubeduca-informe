@@ -1,0 +1,38 @@
+\section{Introducción}
+\textit{Responsable: Mariano (consolida el informe).}
+
+Nubeduca es un LMS (\textit{Learning Management System}) ofrecido como SaaS multi-tenant: una sola
+plataforma que usan a la vez varias instituciones educativas (\texttt{utec}, \texttt{upc} y
+\texttt{pucp}), cada una con sus datos aislados. Los docentes crean cursos, matriculan alumnos,
+publican módulos y tareas, califican y publican notas; los estudiantes descargan materiales,
+entregan tareas, ven sus notas y reciben avisos por correo.
+
+La solución es \textbf{serverless} (API Gateway, Lambda y DynamoDB) y \textbf{orientada a eventos}
+(EventBridge, SQS y SNS). Se divide en seis microservicios, cada uno con su API, sus funciones Lambda
+y su propia tabla DynamoDB, y se despliega íntegramente con Serverless Framework en AWS Academy
+Learner Lab.
+
+\subsection{Objetivos}
+\begin{itemize}
+  \item Cumplir los requisitos del enunciado: multi-tenancy, serverless, arquitectura basada en
+        eventos, mínimo cinco microservicios protegidos, base de datos propia por microservicio con su
+        estructura JSON documentada, 30\,000 registros por microservicio en tres tenants, uso de S3, SNS
+        y SQS, despliegue con Serverless Framework y frontend en Amplify.
+  \item Demostrar de punta a punta, con dos tenants, el flujo académico del curso piloto:
+        contenido $\rightarrow$ tarea $\rightarrow$ entrega $\rightarrow$ nota $\rightarrow$ aviso.
+\end{itemize}
+
+\subsection{Alcance}
+El proyecto entrega la Fase 0 (fundaciones de plataforma) y la Fase 1 (MVP académico). Las fases 2 a
+4 (quizzes, foros, analítica, integraciones externas) quedan como \textit{roadmap}. La prueba de
+estrés es un adicional.
+
+\pendiente{Revisar el alcance con el guion de la demo (DOC-03) y ajustar si cambió algo.}
+
+\subsection{Cómo leer este informe}
+La sección~\ref{sec:arquitectura} presenta la arquitectura; la~\ref{sec:microservicios}, cada
+microservicio con la estructura JSON de su tabla; la~\ref{sec:eventos}, el bus de eventos; la
+\ref{sec:seguridad}, la autenticación y el aislamiento por tenant; la~\ref{sec:frontend}, el frontend;
+la~\ref{sec:despliegue}, el despliegue y la observabilidad; la~\ref{sec:pruebas}, las pruebas; la
+\ref{sec:limitaciones}, las limitaciones del Learner Lab, y la~\ref{sec:repos}, los repositorios. El
+anexo relaciona cada requisito del enunciado con la sección que lo cubre.

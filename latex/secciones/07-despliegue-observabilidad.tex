@@ -1,0 +1,88 @@
+\section{Despliegue, CI y observabilidad}
+\label{sec:despliegue}
+\textit{Responsables: Fabricio (despliegue y alarmas, PLT-01, PLT-03, PLT-05, PLT-06) y Mariano (CI,
+PLT-02; dashboard, PERF-01).}
+
+\subsection{Infraestructura como código}
+Todo se declara con Serverless Framework v4, con un \texttt{serverless.yml} por stack y los stages
+\texttt{dev}, \texttt{staging} y \texttt{prod}. Como el Learner Lab no deja crear roles, todas las
+funciones usan \texttt{arn:aws:iam::\$\{aws:accountId\}:role/LabRole}. Los stacks se conectan por
+parámetros SSM (\texttt{/nubeduca/<stage>/...}) y \textit{exports} de CloudFormation; nadie copia
+ARNs a mano.
+
+\begin{table}[htbp]
+\centering\small
+\begin{tabularx}{\textwidth}{lXl}
+\toprule
+Stack & Qué crea & Repositorio \\
+\midrule
+\texttt{infra/base} & Bucket de despliegue y parámetros SSM compartidos & \texttt{nubeduca-backend} \\
+\texttt{infra/bus} & Bus \texttt{lms-<stage>}, Archive y SNS FIFO de notas & \texttt{nubeduca-backend} \\
+\texttt{infra/auth} & User Pool y App Client de Cognito & \texttt{nubeduca-backend} \\
+\texttt{infra/frontend} & App de Amplify y variables \texttt{VITE\_*} desde SSM & \texttt{nubeduca-backend} \\
+\texttt{infra/despliegue} & VM \texttt{nubeduca-despliegue} (Session Manager) & \texttt{nubeduca-backend} \\
+\texttt{infra/observabilidad} & Dashboard \texttt{nubeduca-<stage>} de CloudWatch & \texttt{nubeduca-backend} \\
+Cada microservicio & API Gateway, Lambdas, tabla, Pipe, regla, cola, DLQ y alarma & \texttt{nubeduca-ms-*} \\
+\bottomrule
+\end{tabularx}
+\caption{Stacks de Serverless Framework.}
+\label{tab:stacks}
+\end{table}
+
+\subsection{Despliegue completo con \texttt{desplegar.sh}}
+\texttt{scripts/desplegar.sh <stage>} despliega todo en la cuenta del \texttt{.env}, en orden:
+\texttt{infra/base} $\rightarrow$ \texttt{infra/bus} $\rightarrow$ \texttt{infra/auth}
+$\rightarrow$ cada \texttt{nubeduca-ms-*} (clonado desde \texttt{main}) $\rightarrow$ frontend.
+Antes de crear nada, \texttt{scripts/cuenta.sh} verifica que las credenciales sean de la cuenta
+esperada. Al final hace una prueba de humo (\texttt{GET /health} de cada API) y un resumen. Opciones:
+\texttt{--con-seed} (carga los 30\,000 registros por servicio), \texttt{--solo <ms>} y
+\texttt{--sin-frontend}.
+
+\pendiente{Fabricio: describir la VM \texttt{nubeduca-despliegue} (rol de instancia
+\texttt{LabInstanceProfile}, sin puertos abiertos) y la cuenta de integración oficial (D2) cuando se
+defina.}
+
+\subsection{Integración continua}
+Cada repositorio corre GitHub Actions en cada PR: lint (ruff, yamllint) y pruebas con moto (sin AWS).
+\texttt{nubeduca-contratos} valida además los esquemas y su compatibilidad con \texttt{main}. Ramas
+\texttt{<tipo>/<ID>-descripcion}, PR a \texttt{main} y \textit{squash merge}.
+
+\pendiente{Indicar si se activó la protección de \texttt{main} con checks obligatorios (requiere un
+admin de la organización). Mientras no esté activa, el check en rojo avisa pero no impide el merge.}
+
+\subsection{Observabilidad}
+\begin{itemize}
+  \item \textbf{CloudWatch Logs}: cada Lambda escribe logs estructurados
+        (\texttt{\{"tipo": "INFO"|"ERROR", "log\_datos": \{...\}\}}).
+  \item \textbf{Alarmas}: una alarma por DLQ (dispara con 1 mensaje). \texttt{scripts/verificar\_alarmas.sh
+        <stage>} lista su estado.
+  \item \textbf{X-Ray}: \textit{tracing} activo en API Gateway y Lambda. El visor no se puede usar en el
+        Learner Lab (sección~\ref{sec:limitaciones}); la evidencia de la traza son los \texttt{TraceId}
+        en CloudWatch Logs.
+  \item \textbf{Dashboard} \texttt{nubeduca-<stage>} (PERF-01): latencia p95 y errores 4XX/5XX de API
+        Gateway, duración, errores, throttles y concurrencia de Lambda, throttles de DynamoDB, mensajes y
+        antigüedad en SQS, DLQ y reglas de EventBridge. Usa expresiones \texttt{SEARCH}, así que cada
+        microservicio nuevo aparece sin editar el dashboard.
+\end{itemize}
+
+\subsection{Resultados y evidencias}
+\paragraph{Staging en la cuenta de Dev 1.}
+\pendiente{Fabricio: resultado de \texttt{desplegar.sh staging --sin-frontend} en su cuenta y, cuando
+se defina, en la cuenta de integración.}
+
+\paragraph{Staging en la cuenta de Dev 2 (21-Nov-2026).}
+Con todos los PRs del ADR-008 ya mergeados, \texttt{scripts/desplegar.sh staging --sin-frontend}
+desplegó \texttt{infra/base}, \texttt{infra/bus}, \texttt{infra/auth} y los seis microservicios, sin
+pendientes ni fallos:
+\begin{itemize}
+  \item \texttt{GET /health} respondió 200 en los seis microservicios.
+  \item \texttt{verificar\_alarmas.sh staging}: las 9 alarmas de DLQ en \texttt{OK}.
+  \item Los cinco microservicios que publican eventos tienen su Pipe
+        \texttt{nubeduca-ms-*-staging-outbox} en \texttt{RUNNING} (ms-notificaciones no publica).
+\end{itemize}
+Al terminar se borró staging de esa cuenta para no consumir presupuesto.
+
+\evidencia{staging-resumen.png}{Resumen de \texttt{desplegar.sh staging}: prueba de humo y alarmas en
+verde.}{fig:staging}
+\evidencia{dashboard-nubeduca.png}{Dashboard \texttt{nubeduca-dev} durante la prueba de carga de
+PERF-01.}{fig:dashboard}

@@ -1,0 +1,30 @@
+\section{Limitaciones del AWS Academy Learner Lab}
+\label{sec:limitaciones}
+\textit{Responsable: Mariano.}
+
+El proyecto se construyó con las restricciones del Learner Lab. Estas son las que afectaron al diseño
+y cómo se resolvieron:
+
+\begin{table}[htbp]
+\centering\small
+\begin{tabularx}{\textwidth}{p{0.30\textwidth}X}
+\toprule
+Limitación & Cómo se resolvió \\
+\midrule
+Solo existe \texttt{LabRole}; no se pueden crear roles IAM & Todas las Lambdas, el Pipe y la VM usan \texttt{LabRole} (o \texttt{LabInstanceProfile}). \\
+EventBridge Schema Registry bloqueado (\texttt{schemas:CreateRegistry} y \texttt{TagResource}) & Los esquemas viven en \texttt{nubeduca-contratos} y la CI los valida y compara. \\
+El visor de X-Ray está bloqueado para \texttt{voclabs} (\texttt{xray:GetTraceSummaries}, \texttt{BatchGetTraces}) & El \textit{tracing} sigue activo; la evidencia son los \texttt{TraceId} en CloudWatch Logs (\#34). \\
+Credenciales temporales de 3 a 4 horas & Renovarlas antes de cada sesión; \texttt{cuenta.sh} verifica la cuenta; Serverless v4 necesita además exportar las variables \texttt{AWS\_*}. \\
+La sesión se apaga y detiene la VM de Cloud9 & Lanzar los despliegues largos con \texttt{nohup}; CloudFormation termina por su cuenta y \texttt{desplegar.sh} se puede relanzar sin efectos. \\
+Presupuesto limitado (unos 50 USD por cuenta) & Pruebas de carga cortas en \texttt{dev}, la de estrés solo en la cuenta de integración, y borrado de los stacks al terminar cada prueba. \\
+\bottomrule
+\end{tabularx}
+\caption{Limitaciones del Learner Lab y su resolución.}
+\label{tab:limitaciones}
+\end{table}
+
+EventBridge Pipes \textbf{sí} está permitido con \texttt{LabRole}: se verificó en GATE-0 y es la base
+del ADR-008.
+
+\pendiente{Agregar cualquier otra limitación que haya encontrado el equipo (por ejemplo, SES en
+\textit{sandbox} para los correos de ms-notificaciones).}

@@ -1,0 +1,63 @@
+\section{Autenticación y multi-tenancy}
+\label{sec:seguridad}
+\textit{Responsable: Mariano (AUTH-01).}
+
+\subsection{Implementación y decisiones}
+El stack \texttt{infra/auth} del repositorio \texttt{nubeduca-backend} crea un User Pool de Amazon
+Cognito con dos atributos personalizados: \texttt{custom:tenant\_id} (\texttt{utec}, \texttt{upc} o
+\texttt{pucp}) y \texttt{custom:role} (\texttt{STUDENT}, \texttt{TEACHER} o \texttt{ADMIN}). Solo un
+administrador crea usuarios, y el \textit{app client} solo puede escribir \texttt{email}: un usuario no
+puede cambiar su propio tenant ni su rol. Exporta \texttt{nubeduca-<stage>-user-pool-id},
+\texttt{-user-pool-arn} y \texttt{-user-pool-client-id}.
+
+Se usa el \textbf{ID token}, porque el access token no trae los atributos personalizados. Cada API
+protegida usa un authorizer \texttt{COGNITO\_USER\_POOLS} de API Gateway, que acepta el header
+\texttt{Authorization} con o sin el prefijo \texttt{Bearer}. Sin token o con un token inválido,
+API Gateway responde 401 antes de invocar la Lambda.
+
+En la plantilla de servicio el authorizer depende del parámetro \texttt{authMode}:
+\begin{itemize}
+  \item \texttt{authMode=cognito}: las rutas usan el authorizer con el User Pool del stage
+        (\texttt{Fn::ImportValue: nubeduca-<stage>-user-pool-arn}). La Lambda lee el tenant y el rol de
+        \texttt{requestContext.authorizer.claims}.
+  \item \texttt{authMode=mock} (por defecto): sin authorizer y con un token
+        \texttt{mock.<tenant>.<ROL>.<userId>}, para el frontend con datos simulados, LocalStack y las
+        pruebas.
+\end{itemize}
+\texttt{/health} queda sin authorizer, porque lo usa la prueba de humo del despliegue.
+
+\paragraph{Aislamiento por tenant.}
+Se usa el modelo \textit{pool} (ADR-005): los tres tenants comparten cada tabla, con
+\texttt{tenant\_id} como clave de partición. La Lambda toma el tenant \textbf{solo del token}, nunca de
+la ruta ni del cuerpo, y todas las consultas van a la partición de ese tenant. El tenant también viaja
+en la \texttt{metadata} de cada evento.
+
+\subsection{Resultados y evidencias}
+Probado el 21-Nov-2026 en la cuenta de Dev 2 (stage \texttt{dev}) con la plantilla desplegada con
+\texttt{authMode=cognito} y los ID tokens reales de los usuarios demo:
+
+\begin{table}[htbp]
+\centering\small
+\begin{tabularx}{\textwidth}{Xl}
+\toprule
+Prueba & Resultado \\
+\midrule
+\texttt{GET /examples} sin token & 401 \\
+Token mock con \texttt{authMode=cognito} & 401 \\
+Docente UTEC, \texttt{POST /examples} (con \texttt{Bearer}) & 201; \texttt{createdBy} = \texttt{sub} de Cognito \\
+Docente UTEC, \texttt{GET /examples} (sin \texttt{Bearer}) & 200, ve su ejemplo \\
+Docente UPC, \texttt{GET /examples} & 200 con lista vacía: no ve los datos de UTEC \\
+Redeploy con \texttt{authMode=mock} + token mock & 200; método con autorización \texttt{NONE} \\
+\bottomrule
+\end{tabularx}
+\caption{Pruebas del authorizer de Cognito y del aislamiento por tenant.}
+\label{tab:auth}
+\end{table}
+
+Usuarios demo (creados con \texttt{scripts/crear\_usuarios\_demo.sh}):
+\texttt{docente.demo@utec.edu.pe}, \texttt{alumno.demo@utec.edu.pe},
+\texttt{docente.demo@upc.edu.pe} y \texttt{alumno.demo@upc.edu.pe}.
+
+\pendiente{Cuando los seis microservicios se desplieguen con \texttt{authMode=cognito} en la cuenta de
+integración, agregar una captura del login real en el frontend (sección~\ref{sec:frontend}). No
+incluir contraseñas ni tokens en las capturas.}

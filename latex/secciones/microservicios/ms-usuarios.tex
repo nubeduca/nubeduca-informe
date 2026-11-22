@@ -1,0 +1,38 @@
+\subsection{ms-usuarios --- Tenants, periodos, usuarios y perfiles}
+\label{sec:ms-usuarios}
+\textit{Responsable: Benjamín (ACA-01) y Edinson (ACA-02). Repositorio: \url{https://github.com/nubeduca/nubeduca-ms-usuarios}.}
+
+\pendiente{Dos o tres párrafos: qué resuelve este microservicio, decisiones de diseño y qué roles (STUDENT, TEACHER, ADMIN) usan cada operación.}
+
+\subsubsection{Endpoints}
+\pendiente{Tabla con método, ruta, roles y evento que emite. Sale del OpenAPI del microservicio en la carpeta \texttt{apis/} de \texttt{nubeduca-contratos} (campos \texttt{x-roles} y \texttt{x-emits}).}
+
+\subsubsection{Eventos}
+\textbf{Publica:}
+\begin{itemize}
+  \item \texttt{lms.users.tenant.created.v1}
+  \item \texttt{lms.users.term.started.v1}
+  \item \texttt{lms.users.user.provisioned.v1}
+\end{itemize}
+
+\textbf{Consume:}
+\textit{Ninguno.}
+
+
+\subsubsection{Estructura JSON de la tabla \texttt{<stage>-t\_usuarios}}
+Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}.
+
+\begin{lstlisting}
+{
+  "tenant_id": "utec",
+  "sk": "<PREFIJO>#<id>",
+  "...": "completar con un ítem real de la tabla"
+}
+\end{lstlisting}
+\pendiente{Reemplazar por un ítem real de cada tipo que guarda la tabla (por ejemplo con \texttt{aws dynamodb scan --table-name dev-t\_usuarios --max-items 1}). Una tabla con los prefijos de \texttt{sk} y un bloque JSON por tipo de ítem.}
+
+\subsubsection{Datos de prueba}
+\pendiente{Evidencia de los 30\,000 registros (UTEC 15\,000, UPC 10\,000, PUCP 5\,000): salida de \texttt{poblar\_datos.py} o un conteo por tenant con \texttt{aws dynamodb query ... --select COUNT}.}
+
+\subsubsection{Resultados y evidencias}
+\evidencia{ms-usuarios-evidencia.png}{ms-usuarios: prueba funcional (por ejemplo, una llamada en Postman o una captura del frontend).}{fig:ms-usuarios}

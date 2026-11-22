@@ -1,0 +1,54 @@
+\section{Pruebas y rendimiento}
+\label{sec:pruebas}
+\textit{Responsables: todo el equipo (QA-01); Mariano (PERF-01); Fabricio (PERF-02).}
+
+\subsection{Pruebas automatizadas}
+Cada microservicio tiene pruebas con moto (AWS simulado) que cubren permisos por rol, aislamiento por
+tenant, validación del cuerpo, idempotencia del consumidor y el recorrido del evento
+(outbox $\rightarrow$ Stream $\rightarrow$ bus $\rightarrow$ regla $\rightarrow$ cola). La plantilla de
+servicio trae 15 pruebas base. También se puede probar en local con LocalStack (LOC-01).
+
+\pendiente{Cada dueño: número de pruebas de su microservicio. Nota: a fines de noviembre algunas
+pruebas fallan en CI por la versión nueva de moto (\texttt{DescribeStream: Not yet implemented});
+indicar si se fijó la versión.}
+
+\subsection{Prueba de punta a punta del curso piloto (QA-01)}
+\pendiente{Resultado del recorrido con 2 tenants (UTEC y UPC): contenido $\rightarrow$ tarea
+$\rightarrow$ entrega $\rightarrow$ nota $\rightarrow$ aviso. Ver \texttt{qa/piloto.py} en
+\texttt{nubeduca-backend}.}
+
+\subsection{Prueba de carga (PERF-01)}
+\texttt{perf/k6/carga\_cursos.js} (k6) lista cursos y abre uno, repartiendo las peticiones entre
+UTEC, UPC y PUCP en proporción 15/10/5 y usando como usuarios a los docentes del seed. Tiene dos
+perfiles: \texttt{corto} (5 usuarios virtuales, 1{,}5\,min, para \texttt{dev}) y \texttt{estres}
+(hasta 100, para staging, protegido con \texttt{-e CONFIRMAR=si} para cuidar el presupuesto del
+Learner Lab). \texttt{perf/tokens/generar\_tokens.sh} obtiene ID tokens reales para el modo Cognito.
+
+Corrida corta del 20-Nov-2026 contra ms-cursos en \texttt{dev} con 30\,000 cursos:
+
+\begin{table}[htbp]
+\centering\small
+\begin{tabularx}{\textwidth}{Xll}
+\toprule
+Métrica & Resultado & Meta \\
+\midrule
+Peticiones & 273 (unas 3 por segundo) & --- \\
+Errores & 0\,\% & $<$ 1\,\% \\
+\texttt{GET /courses/\{courseId\}}, p95 & 43\,ms & $<$ 1\,s \\
+\texttt{GET /courses}, p95 & 1{,}84\,s & $<$ 1\,s (no se cumple) \\
+\bottomrule
+\end{tabularx}
+\caption{Resultados de PERF-01. Las metas son provisionales.}
+\label{tab:perf01}
+\end{table}
+
+El listado tarda unos 1{,}7\,s incluso con un solo usuario, así que no es efecto de la carga sino de
+la consulta: filtra \texttt{ownerId} sobre toda la partición del tenant sin índice
+(sección~\ref{sec:ms-cursos}). Con un índice por docente se espera un p95 de 50 a 100\,ms.
+
+\evidencia{perf01-reporte.png}{Reporte de k6 de la corrida corta de PERF-01.}{fig:perf01}
+
+\pendiente{Ajustar las metas si la sección 13 del documento de arquitectura define otras.}
+
+\subsection{Prueba de estrés en staging (PERF-02)}
+\pendiente{Fabricio: resultados de \texttt{PERFIL=estres} en la cuenta de integración (opcional).}

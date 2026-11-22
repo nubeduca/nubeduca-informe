@@ -1,0 +1,70 @@
+\section{Arquitectura de solución}
+\label{sec:arquitectura}
+\textit{Responsable: Benjamín (diagrama: Alexander, DOC-01).}
+
+Nubeduca corre en la región \texttt{us-east-1} sobre AWS Academy Learner Lab, usando solo el rol
+\texttt{LabRole}. Cada microservicio tiene su propia API en Amazon API Gateway, sus funciones AWS
+Lambda (Python 3.13) y su tabla Amazon DynamoDB. Los microservicios no leen la base de datos de otro:
+se integran por eventos en Amazon EventBridge o, para comandos síncronos, por la API del servicio
+dueño.
+
+\evidencia{arquitectura.png}{Arquitectura de solución de Nubeduca. Fuente editable:
+\texttt{nubeduca-arquitectura.drawio} en el repositorio \texttt{.github}.}{fig:arquitectura}
+
+\subsection{Cómo fluye una petición}
+\begin{enumerate}
+  \item El navegador carga el frontend desde AWS Amplify Hosting.
+  \item El usuario inicia sesión en Amazon Cognito; el ID token trae \texttt{custom:tenant\_id} y
+        \texttt{custom:role}.
+  \item Cada llamada va a la API Gateway del microservicio dueño; el authorizer de Cognito valida el
+        token y la Lambda toma el tenant del token, nunca del cuerpo.
+  \item La Lambda escribe el cambio en su tabla y, en la misma transacción, el evento (ítem
+        \texttt{EVENTO\#}) validado contra su esquema. Los archivos suben directo a Amazon S3 con URL
+        prefirmada.
+  \item DynamoDB Streams y EventBridge Pipes llevan cada evento al bus \texttt{lms-<stage>}; el Archive
+        permite reprocesar.
+  \item Una regla por consumidor copia el evento a su cola Amazon SQS con DLQ; la Lambda consumidora lo
+        procesa una sola vez (idempotente).
+  \item ms-calificaciones publica además las notas en Amazon SNS FIFO, que llegan en orden a la cola
+        SQS FIFO de ms-notificaciones.
+  \item ms-notificaciones avisa por correo con Amazon SNS.
+  \item Amazon CloudWatch y AWS X-Ray observan todo; Serverless Framework despliega cada stack.
+\end{enumerate}
+
+\subsection{Principios de diseño}
+\begin{enumerate}
+  \item Cada servicio es dueño de sus datos.
+  \item Los eventos son hechos en pasado (\texttt{submission.graded}); los comandos son llamadas
+        síncronas al servicio dueño.
+  \item Coreografía por defecto: los servicios reaccionan a eventos sin conocerse entre sí.
+  \item \textit{Transactional outbox}: el cambio y el evento se guardan en la misma transacción.
+  \item Consumidores idempotentes: la entrega es \textit{at-least-once}.
+  \item Orden solo donde importa (notas, con SNS/SQS FIFO).
+  \item Contratos versionados: un cambio incompatible es un tipo nuevo (\texttt{.v2}).
+  \item Multi-tenant desde el día uno: \texttt{tenant\_id} en el token, en cada evento y en la clave
+        de partición.
+\end{enumerate}
+
+\subsection{Decisiones de arquitectura (ADR)}
+\begin{table}[htbp]
+\centering\small
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+ADR & Decisión \\
+\midrule
+ADR-001 & 6 microservicios desplegables, cada uno agrupa varios dominios lógicos. \\
+ADR-002 & Construir desde cero (no envolver Moodle). \\
+ADR-003 & EventBridge + SQS/SNS como broker de eventos. \\
+ADR-005 & Modelo \textit{pool}: los 3 tenants comparten tablas, con \texttt{tenant\_id} en la clave. \\
+ADR-006 & Lambda + API Gateway para el cómputo. \\
+ADR-007 & DynamoDB en los 6 microservicios (sin VPC ni RDS). \\
+ADR-008 & Outbox con EventBridge Pipes en staging y prod; la Lambda relay queda como vuelta atrás. \\
+\bottomrule
+\end{tabularx}
+\caption{Decisiones de arquitectura registradas en el repositorio \texttt{.github}.}
+\label{tab:adr}
+\end{table}
+
+\pendiente{Benjamín: revisar la redacción, copiar el PNG exportado del diagrama como
+\texttt{imagenes/arquitectura.png} y, si quieres, agregar el mapa de capacidades frente a
+Moodle/Canvas del documento de arquitectura.}

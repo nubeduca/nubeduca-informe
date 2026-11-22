@@ -1,0 +1,30 @@
+\section{Conclusiones}
+\label{sec:conclusiones}
+\textit{Responsable: Mariano, con aportes de todo el equipo.}
+
+\subsection{Lo que se cumplió}
+\begin{itemize}
+  \item Un LMS multi-tenant para tres instituciones con seis microservicios serverless, cada uno con su
+        API, sus Lambdas y su tabla DynamoDB.
+  \item Comunicación por eventos con outbox transaccional, EventBridge Pipes, una cola con DLQ por
+        consumidor y consumidores idempotentes; orden por curso para las notas con SNS/SQS FIFO.
+  \item Autenticación con Cognito y aislamiento por tenant tomado siempre del token.
+  \item Despliegue reproducible con Serverless Framework en cualquier cuenta del Learner Lab, verificado
+        con los seis microservicios en staging y las alarmas en verde.
+\end{itemize}
+
+\subsection{Lecciones aprendidas}
+\begin{itemize}
+  \item Probar pronto en el Learner Lab lo que no se sabe si está permitido: EventBridge Pipes sí
+        funcionó y simplificó el diseño; Schema Registry y el visor de X-Ray no, y se buscaron
+        alternativas.
+  \item Las pruebas de carga encuentran problemas de diseño de datos que las pruebas funcionales no
+        ven (el listado de cursos sin índice).
+\end{itemize}
+
+\pendiente{Que cada integrante aporte una lección de su parte.}
+
+\subsection{Trabajo futuro}
+Propagar \texttt{traceparent} en los eventos para encadenar la traza entre microservicios, índices
+secundarios para los listados por usuario y las fases 2 a 4 del \textit{roadmap} (quizzes, foros,
+analítica e integraciones externas).

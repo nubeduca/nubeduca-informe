@@ -1,0 +1,43 @@
+\subsection{ms-calificaciones --- Libro de notas y auditoría}
+\label{sec:ms-calificaciones}
+\textit{Responsable: Edinson y Benjamín (EVA-02); Alexander (DAT-01). Repositorio: \url{https://github.com/nubeduca/nubeduca-ms-calificaciones}.}
+
+\pendiente{Dos o tres párrafos: qué resuelve este microservicio, decisiones de diseño y qué roles (STUDENT, TEACHER, ADMIN) usan cada operación.}
+
+\subsubsection{Endpoints}
+\pendiente{Tabla con método, ruta, roles y evento que emite. Sale del OpenAPI del microservicio en la carpeta \texttt{apis/} de \texttt{nubeduca-contratos} (campos \texttt{x-roles} y \texttt{x-emits}).}
+
+\subsubsection{Eventos}
+\textbf{Publica:}
+\begin{itemize}
+  \item \texttt{lms.grading.grade.changed.v1}
+  \item \texttt{lms.grading.grade.posted.v1 (bus + SNS FIFO)}
+\end{itemize}
+
+\textbf{Consume:}
+\begin{itemize}
+  \item \texttt{lms.assessment.assignment.published.v1}
+  \item \texttt{lms.courses.enrollment.created.v1}
+  \item \texttt{lms.courses.enrollment.dropped.v1}
+  \item \texttt{lms.assessment.submission.graded.v1}
+\end{itemize}
+
+\pendiente{Explicar la publicación de notas en el tópico SNS FIFO \texttt{nubeduca-<stage>-notas.fifo} (\texttt{MessageGroupId = <tenantId>:<courseId>}) y la auditoría de \texttt{grade.changed} (DAT-01).}
+
+\subsubsection{Estructura JSON de la tabla \texttt{<stage>-t\_calificaciones}}
+Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}.
+
+\begin{lstlisting}
+{
+  "tenant_id": "utec",
+  "sk": "<PREFIJO>#<id>",
+  "...": "completar con un ítem real de la tabla"
+}
+\end{lstlisting}
+\pendiente{Reemplazar por un ítem real de cada tipo que guarda la tabla (por ejemplo con \texttt{aws dynamodb scan --table-name dev-t\_calificaciones --max-items 1}). Una tabla con los prefijos de \texttt{sk} y un bloque JSON por tipo de ítem.}
+
+\subsubsection{Datos de prueba}
+\pendiente{Evidencia de los 30\,000 registros (UTEC 15\,000, UPC 10\,000, PUCP 5\,000): salida de \texttt{poblar\_datos.py} o un conteo por tenant con \texttt{aws dynamodb query ... --select COUNT}.}
+
+\subsubsection{Resultados y evidencias}
+\evidencia{ms-calificaciones-evidencia.png}{ms-calificaciones: prueba funcional (por ejemplo, una llamada en Postman o una captura del frontend).}{fig:ms-calificaciones}

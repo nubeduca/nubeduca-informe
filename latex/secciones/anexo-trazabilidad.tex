@@ -1,0 +1,26 @@
+\section{Trazabilidad de requisitos}
+\label{sec:trazabilidad}
+\textit{Responsable: Mariano.}
+
+\begin{longtable}{p{0.40\textwidth}p{0.12\textwidth}p{0.38\textwidth}}
+\toprule
+Requisito del enunciado & Sección & Cómo se cumple \\
+\midrule
+\endhead
+SaaS multi-tenant & \ref{sec:seguridad} & \texttt{tenant\_id} en el token, en cada evento y en la clave de cada tabla. \\
+Serverless & \ref{sec:arquitectura} & API Gateway + Lambda, DynamoDB, EventBridge, SQS y SNS. \\
+Basada en eventos & \ref{sec:eventos} & Outbox + Pipes $\rightarrow$ EventBridge $\rightarrow$ una SQS por consumidor; SNS FIFO para notas. \\
+Mínimo 5 microservicios protegidos & \ref{sec:microservicios}, \ref{sec:seguridad} & 6 microservicios, cada uno con su API Gateway y authorizer de Cognito. \\
+Base de datos propia por microservicio & \ref{sec:microservicios} & Una tabla DynamoDB por microservicio (ADR-007). \\
+Estructura JSON de cada base & \ref{sec:microservicios} & Subsección de cada microservicio. \\
+30\,000 registros en 3 tenants & \ref{sec:microservicios} & \texttt{poblar\_datos.py}: UTEC 15\,000, UPC 10\,000, PUCP 5\,000. \\
+Uso de S3, SNS y SQS & \ref{sec:microservicios}, \ref{sec:eventos} & S3 para archivos; SNS FIFO y correo; SQS por consumidor. \\
+Despliegue con Serverless Framework & \ref{sec:despliegue} & Un \texttt{serverless.yml} por stack y \texttt{desplegar.sh}. \\
+Frontend en Amplify & \ref{sec:frontend} & \texttt{infra/frontend} y \texttt{nubeduca-frontend}. \\
+Diagrama de arquitectura & \ref{sec:arquitectura} & Figura~\ref{fig:arquitectura}. \\
+Demo con 2 tenants & \ref{sec:pruebas} & QA-01 con UTEC y UPC (video en DOC-03). \\
+Enlaces a los repositorios & \ref{sec:repos} & Tabla de repositorios públicos. \\
+\bottomrule
+\end{longtable}
+
+\pendiente{Revisar contra el enunciado oficial del profesor antes de entregar.}

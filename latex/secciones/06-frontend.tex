@@ -1,0 +1,20 @@
+\section{Frontend}
+\label{sec:frontend}
+\textit{Responsable: Guillermo (FE-01, FE-02, FE-03).}
+
+\pendiente{Describir el frontend (React + TypeScript + Vite en AWS Amplify): pantallas para docente y
+estudiante, cómo se conecta a las APIs (variables \texttt{VITE\_API\_*} leídas de SSM por
+\texttt{infra/frontend}) y el modo de autenticación (\texttt{VITE\_AUTH\_MODE}: mock o cognito).}
+
+\subsection{Implementación y decisiones}
+\pendiente{Estructura del proyecto, librerías, manejo de estados de carga y error, y cómo se pasa de
+los mocks (MSW) a las APIs reales.}
+
+\subsection{Resultados y evidencias}
+\pendiente{URL pública de Amplify y una captura por pantalla principal del flujo del curso piloto.}
+
+\evidencia{frontend-login.png}{Inicio de sesión con Amazon Cognito.}{fig:fe-login}
+\evidencia{frontend-cursos.png}{Lista de cursos del docente.}{fig:fe-cursos}
+\evidencia{frontend-modulo.png}{Módulo publicado con su material.}{fig:fe-modulo}
+\evidencia{frontend-entrega.png}{Entrega de una tarea por el estudiante.}{fig:fe-entrega}
+\evidencia{frontend-notas.png}{Notas del estudiante.}{fig:fe-notas}
