@@ -5,7 +5,22 @@
 \pendiente{Dos o tres párrafos: qué resuelve este microservicio, decisiones de diseño y qué roles (STUDENT, TEACHER, ADMIN) usan cada operación.}
 
 \subsubsection{Endpoints}
-\pendiente{Tabla con método, ruta, roles y evento que emite. Sale del OpenAPI del microservicio en la carpeta \texttt{apis/} de \texttt{nubeduca-contratos} (campos \texttt{x-roles} y \texttt{x-emits}).}
+\begin{table}[htbp]
+\centering\footnotesize
+\begin{tabularx}{\textwidth}{lXll}
+\toprule
+Método & Ruta & Roles & Emite \\
+\midrule
+GET    & \texttt{/health} & pública & --- \\
+GET    & \texttt{/courses/\{courseId\}/gradebook} & TEACHER & --- \\
+GET    & \texttt{/courses/\{courseId\}/grades/me} & STUDENT & --- \\
+POST   & \texttt{/grade-items/\{gradeItemId\}/post} & TEACHER & \texttt{grade.posted} \\
+PATCH  & \texttt{/grades/\{gradeId\}} & TEACHER & \texttt{grade.changed}, \texttt{grade.posted} \\
+GET    & \texttt{/grades/\{gradeId\}/history} & TEACHER, ADMIN & --- \\
+\bottomrule
+\end{tabularx}
+\caption{Endpoints de ms-calificaciones (\texttt{apis/ms-calificaciones.openapi.yaml} de \texttt{nubeduca-contratos}); \textit{todos} = STUDENT, TEACHER y ADMIN.}
+\end{table}
 
 \subsubsection{Eventos}
 \textbf{Publica:}
@@ -27,14 +42,63 @@
 \subsubsection{Estructura JSON de la tabla \texttt{<stage>-t\_calificaciones}}
 Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}.
 
+\paragraph{}Columna del libro de notas (EVA-02, de \texttt{assignment.published}) \textperiodcentered{} \texttt{sk = COURSE\#<courseId>\#ITEM\#<gradeItemId>}
+\begin{lstlisting}
+{"tenant_id": "utec", "sk": "COURSE#crs_01JCQRZHQT9F4WY2JYPDV546K7#ITEM#gri_01JCF4SQ7XAMY8HTMRFHAWZ73F",
+ "entidad": "GRADE_ITEM", "gradeItemId": "gri_01JCF4SQ7XAMY8HTMRFHAWZ73F", "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7",
+ "assignmentId": "asg_01JCF4SQ7XAMY8HTMRFHAWZ73F", "title": "Laboratorio 4: SQS y DLQ", "maxScore": 20,
+ "dueAt": "2026-11-20T23:59:00Z", "createdAt": "2026-11-11T15:21:00Z", "updatedAt": "2026-11-11T15:21:00Z", "version": 2}
+\end{lstlisting}
+
+\paragraph{}Nota de un alumno en una columna (EVA-02) \textperiodcentered{} \texttt{sk = COURSE\#<courseId>\#GRADE\#<gradeItemId>\#<studentId>}
 \begin{lstlisting}
 {
   "tenant_id": "utec",
-  "sk": "<PREFIJO>#<id>",
-  "...": "completar con un ítem real de la tabla"
+  "sk": "COURSE#crs_01JCQRZHQT9F4WY2JYPDV546K7#GRADE#gri_01JCF4SQ7XAMY8HTMRFHAWZ73F#a18577e2-e005-4a49-a29e-755dbf08f5b6",
+  "entidad": "GRADE",
+  "gradeId": "grd_01JCHPYHNDAZZ52VG7CCWED8VE",
+  "gradeItemId": "gri_01JCF4SQ7XAMY8HTMRFHAWZ73F",
+  "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7",
+  "assignmentId": "asg_01JCF4SQ7XAMY8HTMRFHAWZ73F",
+  "submissionId": "sbm_01JCY7SYF5X0ZHRJ7KQSVX4BP0",
+  "studentId": "a18577e2-e005-4a49-a29e-755dbf08f5b6",
+  "score": 17.5,
+  "maxScore": 20,
+  "status": "POSTED",
+  "postedAt": "2026-11-15T15:25:00Z",
+  "postedBy": "c62d9930-b473-4b1d-adec-72fdda7cf599",
+  "cause": "MANUAL_OVERRIDE",
+  "reason": "Revisión de la pregunta 3",
+  "changedBy": "c62d9930-b473-4b1d-adec-72fdda7cf599",
+  "changedAt": "2026-11-16T10:00:00Z",
+  "createdAt": "2026-11-13T15:23:00Z",
+  "version": 3
 }
 \end{lstlisting}
-\pendiente{Reemplazar por un ítem real de cada tipo que guarda la tabla (por ejemplo con \texttt{aws dynamodb scan --table-name dev-t\_calificaciones --max-items 1}). Una tabla con los prefijos de \texttt{sk} y un bloque JSON por tipo de ítem.}
+
+\paragraph{}Referencias por id (las rutas reciben solo el id) \textperiodcentered{} \texttt{sk = REF\#<gradeItemId>} y \texttt{sk = REF\#<gradeId>}
+\begin{lstlisting}
+{"tenant_id": "utec", "sk": "REF#gri_01JCF4SQ7XAMY8HTMRFHAWZ73F", "entidad": "REF", "tipo": "GRADE_ITEM",
+ "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7", "gradeItemId": "gri_01JCF4SQ7XAMY8HTMRFHAWZ73F"}
+{"tenant_id": "utec", "sk": "REF#grd_01JCHPYHNDAZZ52VG7CCWED8VE", "entidad": "REF", "tipo": "GRADE",
+ "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7", "gradeItemId": "gri_01JCF4SQ7XAMY8HTMRFHAWZ73F",
+ "studentId": "a18577e2-e005-4a49-a29e-755dbf08f5b6"}
+\end{lstlisting}
+
+\paragraph{}Evento en el outbox (de la plantilla; el Stream lo lleva al bus y, si es \texttt{grade.posted}, al tópico FIFO) \textperiodcentered{} \texttt{sk = EVENTO\#<eventId>}
+\begin{lstlisting}
+{"tenant_id": "utec", "sk": "EVENTO#01JCMK0PDR72NVMBVR2W0Z2J4Q", "entidad": "EVENTO", "source": "lms.grading",
+ "detailType": "lms.grading.grade.posted.v1", "detail": "{\"metadata\":{...},\"data\":{...}}", "ttl": 1763824000}
+\end{lstlisting}
+
+\paragraph{}Matrícula (proyección de \texttt{enrollment.created}; \texttt{enrollment.dropped} la borra) \textperiodcentered{} \texttt{sk = PROY\#ENROLL\#<courseId>\#<userId>}
+\begin{lstlisting}
+{"tenant_id": "utec", "sk": "PROY#ENROLL#crs_01JCQRZHQT9F4WY2JYPDV546K7#c62d9930-b473-4b1d-adec-72fdda7cf599",
+ "entidad": "PROYECCION", "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7",
+ "userId": "c62d9930-b473-4b1d-adec-72fdda7cf599", "enrollmentId": "enr_01JC5F0KPBVF7HK1VV8H23JGMW", "role": "TEACHER"}
+\end{lstlisting}
+
+Formato de los ítems documentado en el README de \texttt{nubeduca-ms-calificaciones}.
 
 \subsubsection{Datos de prueba}
 \pendiente{Evidencia de los 30\,000 registros (UTEC 15\,000, UPC 10\,000, PUCP 5\,000): salida de \texttt{poblar\_datos.py} o un conteo por tenant con \texttt{aws dynamodb query ... --select COUNT}.}

@@ -5,7 +5,26 @@
 \pendiente{Dos o tres párrafos: qué resuelve este microservicio, decisiones de diseño y qué roles (STUDENT, TEACHER, ADMIN) usan cada operación.}
 
 \subsubsection{Endpoints}
-\pendiente{Tabla con método, ruta, roles y evento que emite. Sale del OpenAPI del microservicio en la carpeta \texttt{apis/} de \texttt{nubeduca-contratos} (campos \texttt{x-roles} y \texttt{x-emits}).}
+\begin{table}[htbp]
+\centering\footnotesize
+\begin{tabularx}{\textwidth}{lXll}
+\toprule
+Método & Ruta & Roles & Emite \\
+\midrule
+GET    & \texttt{/health} & pública & --- \\
+GET    & \texttt{/courses/\{courseId\}/assignments} & todos & --- \\
+POST   & \texttt{/courses/\{courseId\}/assignments} & TEACHER & --- \\
+GET    & \texttt{/assignments/\{assignmentId\}} & todos & --- \\
+PATCH  & \texttt{/assignments/\{assignmentId\}} & TEACHER & --- \\
+POST   & \texttt{/assignments/\{assignmentId\}/publish} & TEACHER & \texttt{assignment.published} \\
+GET    & \texttt{/assignments/\{assignmentId\}/submissions} & STUDENT, TEACHER & --- \\
+POST   & \texttt{/assignments/\{assignmentId\}/submissions} & STUDENT & \texttt{submission.submitted} \\
+GET    & \texttt{/submissions/\{submissionId\}} & STUDENT, TEACHER & --- \\
+POST   & \texttt{/submissions/\{submissionId\}/grade} & TEACHER & \texttt{submission.graded} \\
+\bottomrule
+\end{tabularx}
+\caption{Endpoints de ms-evaluaciones (\texttt{apis/ms-evaluaciones.openapi.yaml} de \texttt{nubeduca-contratos}); \textit{todos} = STUDENT, TEACHER y ADMIN.}
+\end{table}
 
 \subsubsection{Eventos}
 \textbf{Publica:}
@@ -26,14 +45,96 @@
 \subsubsection{Estructura JSON de la tabla \texttt{<stage>-t\_evaluaciones}}
 Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}.
 
+\begin{table}[htbp]
+\centering\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.42\textwidth}X}
+\toprule
+\texttt{sk} & Qué es \\
+\midrule
+\texttt{ASSIGN\#<assignmentId>} & Tarea \\
+\texttt{COURSEASSIGN\#<courseId>\#<dueAt>\#<assignmentId>} & Índice: tareas de un curso por fecha de entrega \\
+\texttt{SUBMIT\#<submissionId>} & Entrega \\
+\texttt{ASSIGNSUBMIT\#<assignmentId>\#<studentId>\#<submissionId>} & Índice: entregas de una tarea (y de un alumno en esa tarea) \\
+\texttt{ATTEMPTS\#<assignmentId>\#<studentId>} & Contador de entregas del alumno en la tarea (\texttt{total}) \\
+\texttt{PROY\#ENROLL\#<courseId>\#<userId>} & Matrícula, proyección de \texttt{enrollment.created} \\
+\texttt{PROY\#FILE\#<fileId>} & Archivo escaneado, proyección de \texttt{file.scanned} \\
+\texttt{EVENTO\#}, \texttt{INBOX\#}, \texttt{AGG\#} & Outbox, inbox y versión de agregados de la plantilla \\
+\bottomrule
+\end{tabularx}
+\caption{Prefijos de \texttt{sk} en la tabla de ms-evaluaciones.}
+\end{table}
+
 \begin{lstlisting}
 {
   "tenant_id": "utec",
-  "sk": "<PREFIJO>#<id>",
-  "...": "completar con un ítem real de la tabla"
+  "sk": "ASSIGN#asg_01JCF4SQ7XAMY8HTMRFHAWZ73F",
+  "entidad": "ASSIGNMENT",
+  "assignmentId": "asg_01JCF4SQ7XAMY8HTMRFHAWZ73F",
+  "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7",
+  "title": "Laboratorio 4: SQS y DLQ",
+  "instructions": "Sube tu informe en PDF.",
+  "dueAt": "2026-11-20T23:59:00Z",
+  "maxScore": 20,
+  "allowLate": false,
+  "status": "PUBLISHED",
+  "ownerId": "c62d9930-b473-4b1d-adec-72fdda7cf599",
+  "createdAt": "2026-11-11T15:00:00Z",
+  "version": 2
 }
 \end{lstlisting}
-\pendiente{Reemplazar por un ítem real de cada tipo que guarda la tabla (por ejemplo con \texttt{aws dynamodb scan --table-name dev-t\_evaluaciones --max-items 1}). Una tabla con los prefijos de \texttt{sk} y un bloque JSON por tipo de ítem.}
+
+\begin{lstlisting}
+{
+  "tenant_id": "utec",
+  "sk": "SUBMIT#sbm_01JCY7SYF5X0ZHRJ7KQSVX4BP0",
+  "entidad": "SUBMISSION",
+  "submissionId": "sbm_01JCY7SYF5X0ZHRJ7KQSVX4BP0",
+  "assignmentId": "asg_01JCF4SQ7XAMY8HTMRFHAWZ73F",
+  "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7",
+  "studentId": "a18577e2-e005-4a49-a29e-755dbf08f5b6",
+  "attempt": 1,
+  "fileIds": ["fil_01JC8P2K48BKYRT5ATH3DZDA66"],
+  "comment": "Adjunto mi informe.",
+  "late": false,
+  "status": "GRADED",
+  "submittedAt": "2026-11-12T15:22:00Z",
+  "score": 17,
+  "feedback": "Buen trabajo.",
+  "graderId": "c62d9930-b473-4b1d-adec-72fdda7cf599",
+  "gradedAt": "2026-11-13T15:23:00Z",
+  "version": 2
+}
+\end{lstlisting}
+
+\begin{lstlisting}
+{
+  "tenant_id": "utec",
+  "sk": "PROY#ENROLL#crs_01JCQRZHQT9F4WY2JYPDV546K7#a18577e2-e005-4a49-a29e-755dbf08f5b6",
+  "entidad": "PROYECCION",
+  "enrollmentId": "enr_01JC5F0KPBVF7HK1VV8H23JGMW",
+  "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7",
+  "userId": "a18577e2-e005-4a49-a29e-755dbf08f5b6",
+  "role": "STUDENT",
+  "recibidoDe": "lms.courses",
+  "version": 1
+}
+\end{lstlisting}
+
+\begin{lstlisting}
+{
+  "tenant_id": "utec",
+  "sk": "PROY#FILE#fil_01JC8P2K48BKYRT5ATH3DZDA66",
+  "entidad": "PROYECCION",
+  "fileId": "fil_01JC8P2K48BKYRT5ATH3DZDA66",
+  "result": "CLEAN",
+  "purpose": "SUBMISSION",
+  "ownerId": "a18577e2-e005-4a49-a29e-755dbf08f5b6",
+  "recibidoDe": "lms.content",
+  "version": 1
+}
+\end{lstlisting}
+
+Formato de los ítems documentado en el README de \texttt{nubeduca-ms-evaluaciones}.
 
 \subsubsection{Datos de prueba}
 \pendiente{Evidencia de los 30\,000 registros (UTEC 15\,000, UPC 10\,000, PUCP 5\,000): salida de \texttt{poblar\_datos.py} o un conteo por tenant con \texttt{aws dynamodb query ... --select COUNT}.}

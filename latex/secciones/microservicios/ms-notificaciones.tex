@@ -5,7 +5,20 @@
 \pendiente{Dos o tres párrafos: qué resuelve este microservicio, decisiones de diseño y qué roles (STUDENT, TEACHER, ADMIN) usan cada operación.}
 
 \subsubsection{Endpoints}
-\pendiente{Tabla con método, ruta, roles y evento que emite. Sale del OpenAPI del microservicio en la carpeta \texttt{apis/} de \texttt{nubeduca-contratos} (campos \texttt{x-roles} y \texttt{x-emits}).}
+\begin{table}[htbp]
+\centering\footnotesize
+\begin{tabularx}{\textwidth}{lXll}
+\toprule
+Método & Ruta & Roles & Emite \\
+\midrule
+GET    & \texttt{/health} & pública & --- \\
+GET    & \texttt{/preferences/me} & todos & --- \\
+PUT    & \texttt{/preferences/me} & todos & --- \\
+GET    & \texttt{/notifications/me} & todos & --- \\
+\bottomrule
+\end{tabularx}
+\caption{Endpoints de ms-notificaciones (\texttt{apis/ms-notificaciones.openapi.yaml} de \texttt{nubeduca-contratos}); \textit{todos} = STUDENT, TEACHER y ADMIN.}
+\end{table}
 
 \subsubsection{Eventos}
 \textbf{Publica:}
@@ -28,14 +41,77 @@
 \subsubsection{Estructura JSON de la tabla \texttt{<stage>-t\_notificaciones}}
 Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}.
 
+\begin{table}[htbp]
+\centering\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.42\textwidth}X}
+\toprule
+\texttt{sk} & Qué es \\
+\midrule
+\texttt{USER\#<userId>\#PREFS} & Preferencias de email \\
+\texttt{USER\#<userId>\#NTF\#<createdAt>\#<notificationId>} & Aviso de la bandeja (ordenado por fecha) \\
+\texttt{COURSE\#<courseId>\#INFO} & Nombre del curso (sale de \texttt{course.published}) \\
+\texttt{COURSE\#<courseId>\#MEMBER\#<userId>} & Matriculado en el curso \\
+\texttt{AGG\#<aggregateType>\#<aggregateId>} & Última versión procesada de un agregado \\
+\texttt{INBOX\#<eventId>} & Evento ya procesado (se borra a los 7 días por TTL) \\
+\bottomrule
+\end{tabularx}
+\caption{Prefijos de \texttt{sk} en la tabla de ms-notificaciones.}
+\end{table}
+
 \begin{lstlisting}
 {
   "tenant_id": "utec",
-  "sk": "<PREFIJO>#<id>",
-  "...": "completar con un ítem real de la tabla"
+  "sk": "USER#a18577e2-e005-4a49-a29e-755dbf08f5b6#PREFS",
+  "entidad": "PREFERENCIAS",
+  "userId": "a18577e2-e005-4a49-a29e-755dbf08f5b6",
+  "preferences": {
+    "email": {
+      "coursePublished": true,
+      "announcements": false,
+      "modules": true,
+      "assignments": true,
+      "submissionReceipts": true,
+      "grades": true
+    }
+  },
+  "updatedAt": "2026-11-10T15:00:00Z"
 }
 \end{lstlisting}
-\pendiente{Reemplazar por un ítem real de cada tipo que guarda la tabla (por ejemplo con \texttt{aws dynamodb scan --table-name dev-t\_notificaciones --max-items 1}). Una tabla con los prefijos de \texttt{sk} y un bloque JSON por tipo de ítem.}
+
+\begin{lstlisting}
+{
+  "tenant_id": "utec",
+  "sk": "USER#a18577e2-e005-4a49-a29e-755dbf08f5b6#NTF#2026-11-15T15:25:00Z#ntf_01JCMK0PDR4F6WQ2Z8M3N5B7TA",
+  "entidad": "AVISO",
+  "notificationId": "ntf_01JCMK0PDR4F6WQ2Z8M3N5B7TA",
+  "userId": "a18577e2-e005-4a49-a29e-755dbf08f5b6",
+  "type": "GRADE",
+  "title": "Nota publicada en Cloud Computing",
+  "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7",
+  "status": "SENT",
+  "createdAt": "2026-11-15T15:25:00Z",
+  "eventId": "01JCMK0PDR72NVMBVR2W0Z2J4Q"
+}
+\end{lstlisting}
+
+\begin{lstlisting}
+{ "tenant_id": "utec", "sk": "COURSE#crs_01JCQRZHQT9F4WY2JYPDV546K7#INFO", "entidad": "CURSO",
+  "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7", "title": "Cloud Computing" }
+\end{lstlisting}
+
+\begin{lstlisting}
+{ "tenant_id": "utec", "sk": "COURSE#crs_01JCQRZHQT9F4WY2JYPDV546K7#MEMBER#a18577e2-e005-4a49-a29e-755dbf08f5b6",
+  "entidad": "MATRICULADO", "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7",
+  "userId": "a18577e2-e005-4a49-a29e-755dbf08f5b6", "role": "STUDENT", "enrollmentId": "enr_01JCQRZHQT9F4WY2JYPDV546K7" }
+\end{lstlisting}
+
+\begin{lstlisting}
+{ "tenant_id": "utec", "sk": "AGG#enrollment#enr_01JCQRZHQT9F4WY2JYPDV546K7", "entidad": "AGREGADO", "version": 2 }
+{ "tenant_id": "utec", "sk": "INBOX#01JCMK0PDR72NVMBVR2W0Z2J4Q", "entidad": "INBOX",
+  "detailType": "lms.grading.grade.posted.v1", "procesadoEn": "2026-11-15T15:25:01Z", "ttl": 1763825101 }
+\end{lstlisting}
+
+Formato de los ítems documentado en el README de \texttt{nubeduca-ms-notificaciones}.
 
 \subsubsection{Datos de prueba}
 \pendiente{Evidencia de los 30\,000 registros (UTEC 15\,000, UPC 10\,000, PUCP 5\,000): salida de \texttt{poblar\_datos.py} o un conteo por tenant con \texttt{aws dynamodb query ... --select COUNT}.}

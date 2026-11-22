@@ -5,7 +5,31 @@
 \pendiente{Dos o tres párrafos: qué resuelve este microservicio, decisiones de diseño y qué roles (STUDENT, TEACHER, ADMIN) usan cada operación.}
 
 \subsubsection{Endpoints}
-\pendiente{Tabla con método, ruta, roles y evento que emite. Sale del OpenAPI del microservicio en la carpeta \texttt{apis/} de \texttt{nubeduca-contratos} (campos \texttt{x-roles} y \texttt{x-emits}).}
+\begin{table}[htbp]
+\centering\footnotesize
+\begin{tabularx}{\textwidth}{lXll}
+\toprule
+Método & Ruta & Roles & Emite \\
+\midrule
+GET    & \texttt{/health} & pública & --- \\
+GET    & \texttt{/courses} & todos & --- \\
+POST   & \texttt{/courses} & TEACHER, ADMIN & \texttt{course.created} \\
+GET    & \texttt{/courses/\{courseId\}} & todos & --- \\
+PATCH  & \texttt{/courses/\{courseId\}} & TEACHER, ADMIN & --- \\
+POST   & \texttt{/courses/\{courseId\}/publish} & TEACHER, ADMIN & \texttt{course.published} \\
+POST   & \texttt{/courses/\{courseId\}/archive} & TEACHER, ADMIN & \texttt{course.archived} \\
+GET    & \texttt{/courses/\{courseId\}/sections} & todos & --- \\
+POST   & \texttt{/courses/\{courseId\}/sections} & TEACHER, ADMIN & --- \\
+GET    & \texttt{/courses/\{courseId\}/enrollments} & TEACHER, ADMIN & --- \\
+POST   & \texttt{/courses/\{courseId\}/enrollments} & TEACHER, ADMIN & \texttt{enrollment.created} \\
+POST   & \texttt{/courses/\{courseId\}/enrollments/import} & TEACHER, ADMIN & \texttt{enrollment.created} \\
+DELETE & \texttt{/courses/\{courseId\}/enrollments/\{enrollmentId\}} & TEACHER, ADMIN & \texttt{enrollment.dropped} \\
+GET    & \texttt{/courses/\{courseId\}/announcements} & todos & --- \\
+POST   & \texttt{/courses/\{courseId\}/announcements} & TEACHER & \texttt{announcement.published} \\
+\bottomrule
+\end{tabularx}
+\caption{Endpoints de ms-cursos (\texttt{apis/ms-cursos.openapi.yaml} de \texttt{nubeduca-contratos}); \textit{todos} = STUDENT, TEACHER y ADMIN.}
+\end{table}
 
 \subsubsection{Eventos}
 \textbf{Publica:}
