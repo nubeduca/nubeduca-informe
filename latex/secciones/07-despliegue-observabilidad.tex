@@ -38,9 +38,16 @@ esperada. Al final hace una prueba de humo (\texttt{GET /health} de cada API) y 
 \texttt{--con-seed} (carga los 30\,000 registros por servicio), \texttt{--solo <ms>} y
 \texttt{--sin-frontend}.
 
-\pendiente{Fabricio: describir la VM \texttt{nubeduca-despliegue} (rol de instancia
-\texttt{LabInstanceProfile}, sin puertos abiertos) y la cuenta de integración oficial (D2) cuando se
-defina.}
+\paragraph{Despliegue integrado desde la VM (decisión D2).}
+El despliegue integrado no se corre desde un laptop sino desde una VM EC2,
+\texttt{nubeduca-despliegue}, declarada como IaC en \texttt{infra/despliegue}. Usa el perfil de
+instancia \texttt{LabInstanceProfile}: en su \texttt{.env} no hay claves
+(\texttt{NUBEDUCA\_CREDENCIALES=instancia}), se usa el rol de la instancia, así que las credenciales no
+caducan a media corrida. No abre ningún puerto: se entra por AWS Systems Manager (Session Manager), no
+por SSH. En el arranque instala git, Python~3.11, Node y Serverless~v4 y clona
+\texttt{nubeduca-backend}; desde dentro se corre \texttt{scripts/desplegar.sh staging --con-seed}. La
+cuenta de integración (D2) es un único Learner Lab —el de Dev~3— donde se despliega todo lo integrado
+antes de la demo. \pendiente{Confirmar la cuenta de integración oficial cuando el equipo la defina.}
 
 \subsection{Integración continua}
 Cada repositorio corre GitHub Actions en cada PR: lint (ruff, yamllint) y pruebas con moto (sin AWS).
@@ -66,9 +73,21 @@ admin de la organización). Mientras no esté activa, el check en rojo avisa per
 \end{itemize}
 
 \subsection{Resultados y evidencias}
-\paragraph{Staging en la cuenta de Dev 1.}
-\pendiente{Fabricio: resultado de \texttt{desplegar.sh staging --sin-frontend} en su cuenta y, cuando
-se defina, en la cuenta de integración.}
+\paragraph{Staging en la cuenta de Dev 1 (22-Nov-2026).}
+\texttt{scripts/desplegar.sh staging} desplegó, de un solo comando, \texttt{infra/base},
+\texttt{infra/bus}, \texttt{infra/auth}, los seis microservicios y el frontend de Amplify (IaC), sin
+pendientes ni fallos:
+\begin{itemize}
+  \item \texttt{GET /health} respondió 200 en los seis microservicios.
+  \item \texttt{verificar\_alarmas.sh staging}: las 9 alarmas de DLQ en \texttt{OK}.
+  \item El frontend se creó solo (Amplify por IaC, con las \textit{deploy keys} de la organización
+        habilitadas), tomando las URLs de las APIs del SSM. Con \texttt{--param="mocks=false"} el
+        frontend llama a los microservicios reales: se verificó un \texttt{GET /courses} que responde
+        \texttt{200} contra el backend.
+\end{itemize}
+El despliegue integrado se probó igual desde la VM \texttt{nubeduca-despliegue}: se entró por Session
+Manager y se corrió \texttt{desplegar.sh} desde dentro, usando el rol de la instancia. Al terminar se
+borró staging para no gastar crédito del Learner Lab.
 
 \paragraph{Staging en la cuenta de Dev 2 (21-Nov-2026).}
 Con todos los PRs del ADR-008 ya mergeados, \texttt{scripts/desplegar.sh staging --sin-frontend}
