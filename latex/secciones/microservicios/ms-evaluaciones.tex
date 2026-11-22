@@ -144,5 +144,18 @@ Formato de los ítems documentado en el README de \texttt{nubeduca-ms-evaluacion
 El script \texttt{scripts/poblar\_datos.py} carga 30\,000 entregas: UTEC 15\,000, UPC 10\,000 y PUCP 5\,000, repartidas en tareas de 100 entregas (150, 100 y 50 tareas publicadas por tenant). El 70\,\% de las entregas queda calificado y el 30\,\% enviado. No escribe ítems \texttt{EVENTO\#}, para no inundar el bus, y es idempotente: los identificadores son fijos, así que al correrlo de nuevo reescribe los mismos ítems. Usa los mismos cursos, docentes y alumnos que los seeds de ms-cursos y ms-calificaciones.
 
 El microservicio tiene 44 pruebas automáticas con \texttt{moto} (sin AWS), que corren en la CI de GitHub Actions en cada PR. Cubren permisos por rol y por dueño, aislamiento entre tenants, validación de datos, matrícula, archivos no verificados o ajenos, entregas fuera de plazo, intentos, paginación, el consumidor de eventos (duplicados, eventos viejos y mensajes inválidos), el seed, y que los tres eventos publicados cumplen su esquema.
+
+Carga en la tabla desplegada \texttt{dev-t\_evaluaciones} (22 de noviembre de 2026):
+
+\begin{lstlisting}
+$ python scripts/poblar_datos.py --stage dev
+utec: 15000 entregas
+upc: 10000 entregas
+pucp: 5000 entregas
+Total: 30000 entregas en dev-t_evaluaciones
+\end{lstlisting}
+
+El conteo de los ítems \texttt{SUBMIT\#} por tenant en la tabla desplegada, con \texttt{aws dynamodb query ... --select COUNT}, confirma UTEC 15\,000, UPC 10\,000 y PUCP 5\,000.
+
 \subsubsection{Resultados y evidencias}
-\evidencia{ms-evaluaciones-evidencia.png}{ms-evaluaciones: prueba funcional (por ejemplo, una llamada en Postman o una captura del frontend).}{fig:ms-evaluaciones}
+\evidencia{ms-evaluaciones-evidencia.png}{ms-evaluaciones desplegado en AWS: \texttt{GET /assignments/\{assignmentId\}/submissions} como docente de UTEC devuelve 200 con las entregas del seed (\texttt{SUBMITTED} y \texttt{GRADED}).}{fig:ms-evaluaciones}
