@@ -80,38 +80,7 @@ pendientes ni fallos:
   \item Los cinco microservicios que publican eventos tienen su Pipe
         \texttt{nubeduca-ms-*-staging-outbox} en \texttt{RUNNING} (ms-notificaciones no publica).
 \end{itemize}
-Al terminar se borró staging de esa cuenta para no consumir presupuesto.
-
-\begin{lstlisting}
-== Prueba de humo: GET /health
-  ms-usuarios: 200        ms-cursos: 200          ms-contenidos: 200
-  ms-evaluaciones: 200    ms-calificaciones: 200  ms-notificaciones: 200
-
-== Resumen (staging)
-  Desplegados: infra/base infra/bus infra/auth ms-usuarios ms-cursos
-               ms-contenidos ms-evaluaciones ms-calificaciones ms-notificaciones
-  Pendientes:  ninguno
-  Fallidos:    ninguno
-
-$ scripts/verificar_alarmas.sh staging
-nubeduca-staging-calificaciones-auditoria-dlq    OK
-nubeduca-staging-calificaciones-columnas-dlq     OK
-nubeduca-staging-calificaciones-eventos-dlq      OK
-nubeduca-staging-calificaciones-notas-dlq        OK
-nubeduca-staging-contenidos-eventos-dlq          OK
-nubeduca-staging-cursos-eventos-dlq              OK
-nubeduca-staging-evaluaciones-eventos-dlq        OK
-nubeduca-staging-notificaciones-eventos-dlq      OK
-nubeduca-staging-notificaciones-notas-dlq        OK
-Todas en verde (OK) en staging.
-
-$ aws pipes list-pipes   (Pipes de staging)
-nubeduca-ms-calificaciones-staging-outbox   RUNNING
-nubeduca-ms-contenidos-staging-outbox       RUNNING
-nubeduca-ms-cursos-staging-outbox           RUNNING
-nubeduca-ms-evaluaciones-staging-outbox     RUNNING
-nubeduca-ms-usuarios-staging-outbox         RUNNING
-\end{lstlisting}
+Al terminar se borró staging de esa cuenta.
 \evidencia{dashboard-api.png}{Dashboard \texttt{nubeduca-dev} durante PERF-01: latencia p95 de API
 Gateway (el listado de cursos ronda 1{,}8\,s) y sin errores 4XX/5XX.}{fig:dashboard-api}
 \evidencia{dashboard-lambda-dynamo.png}{Dashboard \texttt{nubeduca-dev} durante PERF-01: concurrencia

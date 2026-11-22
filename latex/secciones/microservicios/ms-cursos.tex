@@ -53,7 +53,7 @@ Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}.
 \pendiente{Confirmar con un ítem real (\texttt{aws dynamodb scan --table-name dev-t\_cursos --max-items 1}) y agregar los demás tipos de ítem de la tabla.}
 
 \subsubsection{Datos de prueba}
-El 20-Nov-2026, en la cuenta de Dev 2 (stage \texttt{dev}), \texttt{python3 scripts/poblar\_datos.py --stage dev}
+El 20-Nov-2026, en la cuenta de Dev 2 (stage \texttt{dev}), \texttt{poblar\_datos.py}
 cargó \textbf{30\,000 cursos} en \texttt{dev-t\_cursos}: UTEC 15\,000, UPC 10\,000 y PUCP 5\,000. Cada tenant
 recibe un periodo activo de seed y 20 docentes de seed; los estados quedan en 60\,\% PUBLISHED, 30\,\% DRAFT y
 10\,\% ARCHIVED. Un conteo de los ítems \texttt{COURSE\#} de UTEC devolvió 15\,000.

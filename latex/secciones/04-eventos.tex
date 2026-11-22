@@ -71,26 +71,3 @@ Dev 1 repitió la prueba en staging con la relay (matrícula de ms-cursos que ll
 ms-notificaciones) y luego con Pipe. Finalmente, con los seis microservicios reales en staging, los
 cinco Pipes \texttt{nubeduca-ms-*-staging-outbox} quedaron en \texttt{RUNNING}
 (sección~\ref{sec:despliegue}).
-
-Ítems de la tabla \texttt{dev-t\_plantilla} después de la prueba y logs del consumidor
-(salidas reales del 20-Nov-2026):
-
-\begin{lstlisting}
-$ aws dynamodb scan --table-name dev-t_plantilla --query "Items[].sk.S"
-[
-    "AGG#example#exm_01M7VSNDS3F2FDBPWB7T9P4P43",
-    "EVENTO#01M7VSNDS31YBPAX5R7WD9A24Y",
-    "EXAMPLE#exm_01M7VSNDS3F2FDBPWB7T9P4P43",
-    "INBOX#01M7VSNDS31YBPAX5R7WD9A24Y",
-    "PROY#EXAMPLE#exm_01M7VSNDS3F2FDBPWB7T9P4P43"
-]
-
-$ sls logs -f consumidor --stage dev      # primera entrega
-{"tipo": "INFO", "log_datos": {"mensaje": "Evento procesado",
- "detailType": "lms.plantilla.example.created.v1",
- "eventId": "01M7VSNDS31YBPAX5R7WD9A24Y", "tenantId": "utec"}}
-
-$ sls logs -f consumidor --stage dev      # reenvío del mismo eventId
-{"tipo": "INFO", "log_datos": {"mensaje": "Evento descartado",
- "motivo": "DUPLICADO", "eventId": "01M7VSNDS31YBPAX5R7WD9A24Y"}}
-\end{lstlisting}
