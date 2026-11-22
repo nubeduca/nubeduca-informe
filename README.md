@@ -7,7 +7,7 @@ Los textos en rojo (`\pendiente{...}`) son instrucciones de redacción: se borra
 ## Estructura
 
 ```text
-informe/
+nudeduca-informe/
 ├── README.md                         ← este archivo
 └── latex/
     ├── main.tex                      ← documento principal (solo lo toca Mariano)
@@ -84,6 +84,7 @@ POST & \texttt{/courses} & TEACHER & \texttt{course.created} \\
 3. Las capturas van en `latex/imagenes/` con nombres sin espacios. Nunca incluyas contraseñas, tokens ni claves de AWS.
 4. Escapa los caracteres especiales en el texto: `\_` para `_`, `\#` para `#`, `\%` para `%`. Las URL van con `\url{...}`.
 5. Dentro de `lstlisting` (bloques JSON) no hace falta escapar nada.
+6. Las figuras y tablas **se numeran solas**. Si en el texto mencionas una, no escribas "Figura 3": usa `Figura~\ref{fig:etiqueta}` (la etiqueta es el tercer argumento de `\evidencia{...}{...}{fig:etiqueta}`) o `Tabla~\ref{tab:etiqueta}` (la del `\label{...}` de la tabla). Así, si alguien agrega o quita una imagen, todo se renumera al compilar.
 
 ## Compilar en Overleaf
 
