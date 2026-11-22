@@ -124,7 +124,24 @@ Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}.
 Formato de los ítems documentado en el README de \texttt{nubeduca-ms-usuarios}.
 
 \subsubsection{Datos de prueba}
-\pendiente{Evidencia de los 30\,000 registros (UTEC 15\,000, UPC 10\,000, PUCP 5\,000): salida de \texttt{poblar\_datos.py} o un conteo por tenant con \texttt{aws dynamodb query ... --select COUNT}.}
+El script \texttt{scripts/poblar\_datos.py} crea los tres tenants (UTEC, UPC y PUCP) y publica un \texttt{tenant.created} por cada uno; si el tenant ya existe, no lo publica de nuevo. Después carga 30\,000 perfiles: UTEC 15\,000, UPC 10\,000 y PUCP 5\,000, con 90\,\% de alumnos, 9\,\% de docentes y 1\,\% de administradores, cada uno con su código institucional. Los perfiles no escriben ítems \texttt{EVENTO\#}, para no inundar el bus, y sus identificadores son fijos, así que el script es idempotente. Incluye los usuarios demo del frontend y un periodo académico activo de seed, el mismo que usa ms-cursos.
+
+Carga en la tabla desplegada \texttt{dev-t\_usuarios} (22 de noviembre de 2026):
+
+\begin{lstlisting}
+$ python scripts/poblar_datos.py --stage dev
+utec: tenant CREADO
+upc: tenant CREADO
+pucp: tenant CREADO
+utec: 15000 usuarios
+upc: 10000 usuarios
+pucp: 5000 usuarios
+Total: 30000 usuarios en dev-t_usuarios
+\end{lstlisting}
+
+El conteo de los perfiles (\texttt{USER\#}) por tenant en la tabla desplegada, con \texttt{aws dynamodb query ... --select COUNT}, confirma UTEC 15\,000, UPC 10\,000 y PUCP 5\,000 (figura~\ref{fig:ms-usuarios-datos}).
+
+\evidencia{ms-usuarios-datos.png}{ms-usuarios: conteo de perfiles por tenant en \texttt{dev-t\_usuarios}.}{fig:ms-usuarios-datos}
 
 \subsubsection{Resultados y evidencias}
-\evidencia{ms-usuarios-evidencia.png}{ms-usuarios: prueba funcional (por ejemplo, una llamada en Postman o una captura del frontend).}{fig:ms-usuarios}
+\evidencia{ms-usuarios-evidencia.png}{ms-usuarios desplegado en AWS: \texttt{GET /users?role=TEACHER\&limit=3} como administrador de UTEC devuelve 200 con docentes del seed.}{fig:ms-usuarios}
