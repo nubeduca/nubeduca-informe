@@ -63,6 +63,8 @@ Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}.
 {
   "tenant_id": "utec",
   "sk": "COURSE#crs_00000000000000000000000020",
+  "entidad": "COURSE",
+  "version": 1,
   "courseId": "crs_00000000000000000000000020",
   "termId": "trm_0000000000000000000000SEED",
   "code": "SEED-00020",
@@ -74,7 +76,9 @@ Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}.
   "seed": true
 }
 \end{lstlisting}
-\pendiente{Confirmar con un ítem real (\texttt{aws dynamodb scan --table-name dev-t\_cursos --max-items 1}) y agregar los demás tipos de ítem de la tabla.}
+Ítem real leído de la tabla desplegada \texttt{dev-t\_cursos} con \texttt{aws dynamodb get-item} (22-Nov-2026).
+
+\pendiente{Agregar los demás tipos de ítem de la tabla (COURSECODE\#, SECTION\#, ENROLL\#, ENROLLID\#, USERCOURSE\#, anuncios y proyecciones PROY\#).}
 
 \subsubsection{Datos de prueba}
 El 20-Nov-2026, en la cuenta de Dev 2 (stage \texttt{dev}), \texttt{poblar\_datos.py}
@@ -82,5 +86,19 @@ cargó \textbf{30\,000 cursos} en \texttt{dev-t\_cursos}: UTEC 15\,000, UPC 10\,
 recibe un periodo activo de seed y 20 docentes de seed; los estados quedan en 60\,\% PUBLISHED, 30\,\% DRAFT y
 10\,\% ARCHIVED. Un conteo de los ítems \texttt{COURSE\#} de UTEC devolvió 15\,000.
 
+El 22-Nov-2026 se repitió la carga en otra cuenta (stage \texttt{dev}, cuenta de Dev 4):
+
+\begin{lstlisting}
+$ python scripts/poblar_datos.py --stage dev
+utec: 15000 cursos
+upc: 10000 cursos
+pucp: 5000 cursos
+Total: 30000 cursos en dev-t_cursos
+\end{lstlisting}
+
+El conteo de los ítems \texttt{COURSE\#} de los tres tenants, con \texttt{aws dynamodb query ... --select COUNT}, confirma UTEC 15\,000, UPC 10\,000 y PUCP 5\,000 (figura~\ref{fig:ms-cursos-datos}).
+
+\evidencia{ms-cursos-datos.png}{ms-cursos: conteo de cursos por tenant en \texttt{dev-t\_cursos}.}{fig:ms-cursos-datos}
+
 \subsubsection{Resultados y evidencias}
-\evidencia{ms-cursos-evidencia.png}{ms-cursos: prueba funcional (por ejemplo, una llamada en Postman o una captura del frontend).}{fig:ms-cursos}
+\evidencia{ms-cursos-evidencia.png}{ms-cursos desplegado en AWS: \texttt{GET /courses/\{courseId\}} como administrador de UTEC devuelve 200 con el primer curso del seed.}{fig:ms-cursos}
