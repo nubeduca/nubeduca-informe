@@ -1,6 +1,6 @@
 \section{Pruebas y rendimiento}
 \label{sec:pruebas}
-\textit{Responsables: todo el equipo (QA-01); Mariano (PERF-01); Fabricio (PERF-02).}
+\textit{Responsables: todo el equipo (QA-01); Mariano (PERF-01).}
 
 \subsection{Pruebas automatizadas}
 Cada microservicio tiene pruebas con moto (AWS simulado) que cubren permisos por rol, aislamiento por
@@ -67,8 +67,11 @@ RESULTADO: 38/38 pasos OK
 Pasó en tres corridas seguidas: 13 pasos por tenant en UTEC y UPC, más 12 comprobaciones de aislamiento.
 Después de las corridas, \texttt{verificar\_alarmas.sh staging} dio las 9 alarmas de DLQ en OK.
 
-\pendiente{Correr \texttt{qa/piloto.py --stage staging} en la cuenta de integración (D2) cuando se defina, y
-también con \texttt{--auth cognito}, y actualizar este resultado.}
+\paragraph{Corrida con login real en producción (22-Nov-2026).} El mismo recorrido se repitió contra
+\textbf{producción} con \texttt{--auth cognito}, usando los usuarios reales de cada tenant en el User Pool
+(ADMIN, docente y alumno) en vez de los tokens mock: \texttt{RESULTADO: 38/38 pasos OK}, con los mismos 13
+pasos por tenant y las 12 comprobaciones de aislamiento. Con esto, un curso real opera de punta a punta en
+producción con autenticación Cognito.
 
 \subsection{Prueba de carga (PERF-01)}
 \texttt{perf/k6/carga\_cursos.js} (k6) lista cursos y abre uno, repartiendo las peticiones entre
@@ -101,6 +104,3 @@ la consulta: filtra \texttt{ownerId} sobre toda la partición del tenant sin ín
 \evidencia{perf01-reporte.png}{Reporte de k6 de la corrida corta de PERF-01.}{fig:perf01}
 
 \pendiente{Ajustar las metas si la sección 13 del documento de arquitectura define otras.}
-
-\subsection{Prueba de estrés en staging (PERF-02)}
-\pendiente{Fabricio: resultados de \texttt{PERFIL=estres} en la cuenta de integración (opcional).}
