@@ -20,6 +20,11 @@
         alternativas.
   \item Las pruebas de carga encuentran problemas de diseño de datos que las pruebas funcionales no
         ven (el listado de cursos sin índice).
+  \item (Alexander) Las pruebas con moto no reemplazan una prueba desplegada: moto no aplica las
+        políticas de recurso de DynamoDB, no ejecuta los Pipes ni el authorizer de Cognito, y no
+        devuelve el 401 de API Gateway sin cabeceras CORS. Lo que hizo inmutable la auditoría y seguro
+        el login solo se pudo confirmar desplegando en AWS e intentando, con las credenciales reales,
+        lo que no se debería poder hacer.
 \end{itemize}
 
 \pendiente{Que cada integrante aporte una lección de su parte.}
