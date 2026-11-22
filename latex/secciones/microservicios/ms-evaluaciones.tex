@@ -2,7 +2,11 @@
 \label{sec:ms-evaluaciones}
 \textit{Responsable: Edinson (EVA-01). Repositorio: \url{https://github.com/nubeduca/nubeduca-ms-evaluaciones}.}
 
-\pendiente{Dos o tres párrafos: qué resuelve este microservicio, decisiones de diseño y qué roles (STUDENT, TEACHER, ADMIN) usan cada operación.}
+ms-evaluaciones gestiona las tareas de cada curso y las entregas de los alumnos. El docente crea una tarea en borrador (\texttt{DRAFT}) con título, instrucciones, fecha límite y puntaje máximo, y al publicarla pasa a \texttt{PUBLISHED} y se emite \texttt{assignment.published}. El alumno matriculado entrega archivos ya escaneados por el antivirus y se emite \texttt{submission.submitted}. El docente califica cada entrega con una nota entre 0 y el puntaje máximo y se emite \texttt{submission.graded}, que ms-calificaciones convierte en una nota del libro de notas.
+
+El servicio no consulta a otros microservicios: mantiene dos proyecciones locales alimentadas por eventos. Con \texttt{enrollment.created} y \texttt{enrollment.dropped} sabe quién está matriculado en cada curso, y con \texttt{file.scanned} sabe qué archivos están limpios (\texttt{CLEAN}). Así, para aceptar una entrega comprueba que la tarea esté publicada, que el alumno esté matriculado, que cada archivo esté \texttt{CLEAN} y sea suyo, y que no haya vencido el plazo, salvo que la tarea tenga \texttt{allowLate}. Cada entrega nueva del mismo alumno incrementa su número de intento (\texttt{attempt}).
+
+Los eventos propios salen por el outbox: el cambio y el evento se escriben en la misma transacción de DynamoDB, después de validar el evento contra su JSON Schema de \texttt{nubeduca-contratos}. Las publicaciones y calificaciones usan una condición sobre la versión del ítem, de modo que dos llamadas simultáneas no emiten el evento dos veces. El tenant y el rol salen siempre del token. El docente crea, edita, publica y califica; el alumno ve solo las tareas publicadas de sus cursos y solo sus entregas, y no ve su nota aquí, porque la publica ms-calificaciones (EVA-02); el administrador solo consulta tareas.
 
 \subsubsection{Endpoints}
 \begin{table}[htbp]
@@ -137,7 +141,8 @@ Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}.
 Formato de los ítems documentado en el README de \texttt{nubeduca-ms-evaluaciones}.
 
 \subsubsection{Datos de prueba}
-\pendiente{Evidencia de los 30\,000 registros (UTEC 15\,000, UPC 10\,000, PUCP 5\,000): salida de \texttt{poblar\_datos.py} o un conteo por tenant con \texttt{aws dynamodb query ... --select COUNT}.}
+El script \texttt{scripts/poblar\_datos.py} carga 30\,000 entregas: UTEC 15\,000, UPC 10\,000 y PUCP 5\,000, repartidas en tareas de 100 entregas (150, 100 y 50 tareas publicadas por tenant). El 70\,\% de las entregas queda calificado y el 30\,\% enviado. No escribe ítems \texttt{EVENTO\#}, para no inundar el bus, y es idempotente: los identificadores son fijos, así que al correrlo de nuevo reescribe los mismos ítems. Usa los mismos cursos, docentes y alumnos que los seeds de ms-cursos y ms-calificaciones.
 
+El microservicio tiene 44 pruebas automáticas con \texttt{moto} (sin AWS), que corren en la CI de GitHub Actions en cada PR. Cubren permisos por rol y por dueño, aislamiento entre tenants, validación de datos, matrícula, archivos no verificados o ajenos, entregas fuera de plazo, intentos, paginación, el consumidor de eventos (duplicados, eventos viejos y mensajes inválidos), el seed, y que los tres eventos publicados cumplen su esquema.
 \subsubsection{Resultados y evidencias}
 \evidencia{ms-evaluaciones-evidencia.png}{ms-evaluaciones: prueba funcional (por ejemplo, una llamada en Postman o una captura del frontend).}{fig:ms-evaluaciones}
