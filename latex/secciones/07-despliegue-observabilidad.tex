@@ -112,5 +112,8 @@ nubeduca-ms-cursos-staging-outbox           RUNNING
 nubeduca-ms-evaluaciones-staging-outbox     RUNNING
 nubeduca-ms-usuarios-staging-outbox         RUNNING
 \end{lstlisting}
-\evidencia{dashboard-nubeduca.png}{Dashboard \texttt{nubeduca-dev} durante la prueba de carga de
-PERF-01.}{fig:dashboard}
+\evidencia{dashboard-api.png}{Dashboard \texttt{nubeduca-dev} durante PERF-01: latencia p95 de API
+Gateway (el listado de cursos ronda 1{,}8\,s) y sin errores 4XX/5XX.}{fig:dashboard-api}
+\evidencia{dashboard-lambda-dynamo.png}{Dashboard \texttt{nubeduca-dev} durante PERF-01: concurrencia
+de Lambda y lecturas consumidas de DynamoDB, altas porque el listado recorre toda la partición del
+tenant.}{fig:dashboard-dynamo}
