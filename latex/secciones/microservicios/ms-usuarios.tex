@@ -47,13 +47,13 @@ Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}.
 \toprule
 \texttt{sk} & Qué es \\
 \midrule
-\texttt{TENANT} & Institución   ver abajo \\
-\texttt{TERM\#<termId>} & Periodo académico   ver abajo \\
-\texttt{TERMNAME\#<name>} & Reserva del nombre del periodo en el tenant   \texttt{\{"tenant\_id": "utec", "sk": "TERMNAME\#2026-2", "entidad": "TERMNAME", "termId": "trm\_01JC..."\}} \\
-\texttt{USER\#<userId>} & Perfil   ver abajo \\
-\texttt{USERCODE\#<código>} & Código institucional $\rightarrow$ usuario (único en el tenant)   \texttt{\{"tenant\_id": "utec", "sk": "USERCODE\#202310457", "entidad": "USERCODE", "userId": "11111111-1111-4111-8111-111111111111"\}} \\
-\texttt{ROSTER\#<email>} & Padrón: lo que la institución ya sabe de ese correo, para el primer login   ver abajo \\
-\texttt{EVENTO\#<eventId>} & Outbox (lo lee el Stream)   \texttt{source}, \texttt{detailType}, \texttt{detail}, \texttt{ttl} 7 días \\
+\texttt{TENANT} & Institución \\
+\texttt{TERM\#<termId>} & Periodo académico \\
+\texttt{TERMNAME\#<name>} & Reserva del nombre del periodo en el tenant \\
+\texttt{USER\#<userId>} & Perfil \\
+\texttt{USERCODE\#<código>} & Código institucional $\rightarrow$ usuario (único en el tenant) \\
+\texttt{ROSTER\#<email>} & Padrón: lo que la institución ya sabe de ese correo, para el primer login \\
+\texttt{EVENTO\#<eventId>} & Outbox (lo lee el Stream) \\
 \bottomrule
 \end{tabularx}
 \caption{Prefijos de \texttt{sk} en la tabla de ms-usuarios.}
