@@ -21,8 +21,7 @@ $\rightarrow$ entrega $\rightarrow$ nota $\rightarrow$ aviso. Ver \texttt{qa/pil
 \texttt{perf/k6/carga\_cursos.js} (k6) lista cursos y abre uno, repartiendo las peticiones entre
 UTEC, UPC y PUCP en proporción 15/10/5 y usando como usuarios a los docentes del seed. Tiene dos
 perfiles: \texttt{corto} (5 usuarios virtuales, 1{,}5\,min, para \texttt{dev}) y \texttt{estres}
-(hasta 100, para staging, protegido con \texttt{-e CONFIRMAR=si} para cuidar el presupuesto del
-Learner Lab). \texttt{perf/tokens/generar\_tokens.sh} obtiene ID tokens reales para el modo Cognito.
+(hasta 100 usuarios virtuales, para staging). \texttt{perf/tokens/generar\_tokens.sh} obtiene ID tokens reales para el modo Cognito.
 
 Corrida corta del 20-Nov-2026 contra ms-cursos en \texttt{dev} con 30\,000 cursos:
 
