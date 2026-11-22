@@ -1,0 +1,40 @@
+name: Compilar informe
+
+# Compila latex/main.tex en cada push o PR y deja el PDF para descargar
+# en la pestaña Actions (sección "Artifacts" de cada ejecución).
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pdf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compilar con pdfLaTeX
+        uses: xu-cheng/latex-action@v3
+        with:
+          root_file: main.tex
+          working_directory: latex
+
+      - name: Contar pendientes
+        run: |
+          echo "### Avance del informe" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Archivo | Pendientes |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          total=0
+          for f in $(find latex/secciones -name '*.tex' | sort); do
+            n=$(grep -c '\\pendiente{' "$f" || true)
+            total=$((total + n))
+            echo "| \`${f#latex/secciones/}\` | $n |" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo "| **Total** | **$total** |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Subir el PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: informe-nubeduca
+          path: latex/main.pdf
