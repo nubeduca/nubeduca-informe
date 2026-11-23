@@ -14,12 +14,11 @@
 \end{itemize}
 
 \subsection{Lecciones aprendidas}
-\begin{itemize}
-  \item Probar pronto en el Learner Lab lo que no se sabe si está permitido: EventBridge Pipes sí
-        funcionó y simplificó el diseño; Schema Registry y el visor de X-Ray no, y se buscaron
-        alternativas.
-  \item Las pruebas de carga encuentran problemas de diseño de datos que las pruebas funcionales no
-        ven (el listado de cursos sin índice).
+  \item (Mariano) Probar pronto en el Learner Lab lo que no se sabe si está permitido: EventBridge
+        Pipes sí funcionó y simplificó el diseño; Schema Registry y el visor de X-Ray no, y se buscaron
+        alternativas. Además, las pruebas de carga encuentran problemas de diseño de datos que las
+        pruebas funcionales no ven: en PERF-01 descubrí que el listado de cursos del docente tarda
+        1{,}7\,s incluso con un solo usuario, porque recorre toda la partición del tenant sin índice.
   \item (Alexander) Las pruebas con moto no reemplazan una prueba desplegada: moto no aplica las
         políticas de recurso de DynamoDB, no ejecuta los Pipes ni el authorizer de Cognito, y no
         devuelve el 401 de API Gateway sin cabeceras CORS. Lo que hizo inmutable la auditoría y seguro
@@ -47,7 +46,7 @@
         consulta frecuente necesita su clave o su índice desde el diseño de la tabla.
 \end{itemize}
 
-\pendiente{Que cada integrante aporte una lección de su parte.}
+\pendiente{Falta la lección de Fabricio.}
 
 \subsection{Trabajo futuro}
 Propagar \texttt{traceparent} en los eventos para encadenar la traza entre microservicios, índices
