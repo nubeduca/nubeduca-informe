@@ -14,10 +14,15 @@ servicio trae 15 pruebas base. También se puede probar en local con LocalStack 
   \item \textbf{ms-calificaciones:} 63 pruebas en total, de las cuales las de la auditoría (DAT-01) cubren
         el registro de cada \texttt{grade.changed}, duplicados, eventos en desorden, eventos inválidos,
         aislamiento por tenant y permisos del historial.
+  \item \textbf{ms-notificaciones:} 23 pruebas (API, consumidores y \texttt{poblar\_datos.py}):
+        preferencias por usuario, correo respetando la preferencia, idempotencia ante eventos
+        repetidos, eventos viejos o en desorden y aislamiento por tenant.
 \end{itemize}
 Las pruebas que leen el Stream fallaban con \texttt{boto3}/\texttt{botocore} 1.44.4 y moto 5.2.5
 (\texttt{DescribeStream: Not yet implemented}). En ms-contenidos y ms-calificaciones se fijó
 \texttt{boto3<1.44.4} y \texttt{botocore<1.44.4} en \texttt{requirements-dev.txt}.
+En ms-notificaciones no se fijó la versión: no lee Streams (consume de colas SQS), así que el cambio
+de moto no le afecta y sus 23 pruebas pasan con las versiones actuales.
 
 \pendiente{Los demás dueños: número de pruebas de su microservicio e indicar si fijaron la versión.}
 

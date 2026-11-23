@@ -2,7 +2,25 @@
 \label{sec:ms-notificaciones}
 \textit{Responsable: Guillermo (ENG-01). Repositorio: \url{https://github.com/nubeduca/nubeduca-ms-notificaciones}.}
 
-\pendiente{Dos o tres párrafos: qué resuelve este microservicio, decisiones de diseño y qué roles (STUDENT, TEACHER, ADMIN) usan cada operación.}
+ms-notificaciones avisa a los usuarios de lo que pasa en sus cursos: un curso publicado, un anuncio, un
+módulo nuevo, una tarea nueva, la constancia de una entrega y una nota publicada. No publica ningún
+evento: solo \textbf{consume} los de los demás microservicios, guarda un aviso en la bandeja de cada
+usuario y, si el usuario lo tiene activado en sus preferencias, le manda un correo.
+
+Las decisiones de diseño siguen las reglas de consumo de la arquitectura. Es \textbf{idempotente}: antes
+de procesar, escribe \texttt{INBOX\#<eventId>} con \texttt{attribute\_not\_exists} en la misma transacción
+que el cambio, así que un evento repetido se descarta; y el identificador del aviso sale de
+\texttt{(eventId, userId)}, así que un reintento no duplica avisos ni correos. Respeta el \textbf{orden}:
+guarda la última \texttt{aggregateVersion} de cada agregado y descarta los eventos con versión igual o
+menor. Es \textbf{tolerante} con los campos desconocidos y no valida contra el esquema. Los eventos del
+bus llegan por una cola SQS con DLQ, las notas llegan por una cola SQS FIFO para conservar el orden por
+curso, y un mensaje que falla cinco veces va a su DLQ; el Lambda devuelve
+\texttt{batchItemFailures} para reintentar solo el mensaje que falló. El \textit{tenant} va siempre en la
+clave de partición, así que una consulta nunca cruza instituciones.
+
+Sus tres rutas autenticadas (bandeja, leer preferencias y cambiar preferencias) las usan por igual
+\texttt{STUDENT}, \texttt{TEACHER} y \texttt{ADMIN}, y siempre devuelven los datos del usuario del token;
+\texttt{/health} es pública.
 
 \subsubsection{Endpoints}
 \begin{table}[htbp]
@@ -36,7 +54,21 @@ GET    & \texttt{/notifications/me} & todos & --- \\
   \item \texttt{lms.grading.grade.posted.v1 (desde su cola SQS FIFO, no por regla del bus)}
 \end{itemize}
 
-\pendiente{Guillermo: explicar las preferencias por usuario y el envío de correo con SNS (confirmación de suscripción o correos verificados).}
+\textbf{Preferencias y correo.} Cada usuario tiene una ficha de preferencias
+(\texttt{USER\#\allowbreak{}<userId>\#\allowbreak{}PREFS}) con un interruptor de correo por tipo de aviso:
+\texttt{coursePublished}, \texttt{announcements}, \texttt{modules}, \texttt{assignments},
+\texttt{submissionReceipts} y \texttt{grades}. Se crea con valores por defecto cuando llega
+\texttt{user.provisioned}, sin pisar una ya existente, y el usuario la lee y la cambia con
+\texttt{GET} y \texttt{PUT /preferences/me}. El aviso siempre queda en la bandeja; lo que cambia es el
+correo. Su \texttt{status} es \texttt{SKIPPED\_BY\_PREFERENCE} si ese tipo está desactivado (no se
+envía correo), \texttt{SENT} si se publicó en SNS y \texttt{FAILED} si la publicación falló.
+
+Como los eventos no traen correos (su contenido es mínimo), el correo sale por un tópico de Amazon SNS
+(\texttt{nubeduca-<stage>-notificaciones}) con los atributos \texttt{tenantId}, \texttt{userId} y
+\texttt{type}. Cada dirección se suscribe al tópico con una política de filtro por \texttt{userId}
+(\texttt{scripts/suscribir\_email.sh}), de modo que cada persona recibe solo sus avisos. Amazon SNS pide
+que \textbf{cada dirección confirme su suscripción} con un enlace que llega por correo; mientras no la
+confirme, no recibe nada. El envío usa SNS y no SES.
 
 \subsubsection{Estructura JSON de la tabla \texttt{<stage>-t\_notificaciones}}
 Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}.
@@ -47,12 +79,12 @@ Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}.
 \toprule
 \texttt{sk} & Qué es \\
 \midrule
-\texttt{USER\#<userId>\#PREFS} & Preferencias de email \\
-\texttt{USER\#<userId>\#NTF\#<createdAt>\#<notificationId>} & Aviso de la bandeja (ordenado por fecha) \\
-\texttt{COURSE\#<courseId>\#INFO} & Nombre del curso (sale de \texttt{course.published}) \\
-\texttt{COURSE\#<courseId>\#MEMBER\#<userId>} & Matriculado en el curso \\
-\texttt{AGG\#<aggregateType>\#<aggregateId>} & Última versión procesada de un agregado \\
-\texttt{INBOX\#<eventId>} & Evento ya procesado (se borra a los 7 días por TTL) \\
+\texttt{USER\#\allowbreak{}<userId>\#\allowbreak{}PREFS} & Preferencias de email \\
+\texttt{USER\#\allowbreak{}<userId>\#\allowbreak{}NTF\#\allowbreak{}<createdAt>\#\allowbreak{}<notificationId>} & Aviso de la bandeja (ordenado por fecha) \\
+\texttt{COURSE\#\allowbreak{}<courseId>\#\allowbreak{}INFO} & Nombre del curso (sale de \texttt{course.published}) \\
+\texttt{COURSE\#\allowbreak{}<courseId>\#\allowbreak{}MEMBER\#\allowbreak{}<userId>} & Matriculado en el curso \\
+\texttt{AGG\#\allowbreak{}<aggregateType>\#\allowbreak{}<aggregateId>} & Última versión procesada de un agregado \\
+\texttt{INBOX\#\allowbreak{}<eventId>} & Evento ya procesado (se borra a los 7 días por TTL) \\
 \bottomrule
 \end{tabularx}
 \caption{Prefijos de \texttt{sk} en la tabla de ms-notificaciones.}
@@ -114,7 +146,17 @@ Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}.
 Formato de los ítems documentado en el README de \texttt{nubeduca-ms-notificaciones}.
 
 \subsubsection{Datos de prueba}
-\pendiente{Evidencia de los 30\,000 registros (UTEC 15\,000, UPC 10\,000, PUCP 5\,000): salida de \texttt{poblar\_datos.py} o un conteo por tenant con \texttt{aws dynamodb query ... --select COUNT}.}
+\texttt{poblar\_datos.py} carga 30\,000 registros en la tabla \texttt{<stage>-t\_notificaciones}: UTEC
+15\,000, UPC 10\,000 y PUCP 5\,000. En cada institución, el 10\,\% son preferencias de usuario (90\,\%
+estudiantes y 10\,\% docentes) y el 90\,\% son avisos en las bandejas de los estudiantes. Los
+identificadores son deterministas, así que cargar dos veces no duplica datos, y el script no escribe
+ítems \texttt{INBOX} ni \texttt{EVENTO}, así que no dispara eventos ni correos.
+
+El conteo de los avisos y preferencias por tenant en la tabla desplegada, con
+\texttt{aws dynamodb query ... --select COUNT}, confirma UTEC 15\,000, UPC 10\,000 y PUCP 5\,000
+(figura~\ref{fig:ms-notificaciones-datos}).
+
+\evidencia{ms-notificaciones-datos.png}{ms-notificaciones: conteo de registros por tenant en \texttt{dev-t\_notificaciones}.}{fig:ms-notificaciones-datos}
 
 \subsubsection{Resultados y evidencias}
-\evidencia{ms-notificaciones-evidencia.png}{ms-notificaciones: prueba funcional (por ejemplo, una llamada en Postman o una captura del frontend).}{fig:ms-notificaciones}
+\evidencia{ms-notificaciones-evidencia.png}{ms-notificaciones desplegado en AWS (stage \texttt{prod}): la bandeja de avisos del alumno de UTEC en el frontend, con avisos de notas y entregas en estado \textit{Enviado}, y sus preferencias de correo (\texttt{GET /notifications/me} y \texttt{GET /preferences/me}).}{fig:ms-notificaciones}
