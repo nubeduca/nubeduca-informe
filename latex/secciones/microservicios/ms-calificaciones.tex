@@ -2,32 +2,7 @@
 \label{sec:ms-calificaciones}
 \textit{Responsable: Edinson y Benjamín (EVA-02); Alexander (DAT-01). Repositorio: \url{https://github.com/nubeduca/nubeduca-ms-calificaciones}.}
 
-ms-calificaciones es la fuente de verdad de las notas. Mantiene el libro de notas de cada curso: una
-\textbf{columna} por cada tarea publicada (\texttt{assignment.published} de ms-evaluaciones) y una
-\textbf{nota} por alumno y columna, que nace en borrador (\texttt{DRAFT}) cuando el docente califica una
-entrega (\texttt{submission.graded}). El alumno solo ve sus notas cuando el docente publica la columna
-(\texttt{POSTED}). Además guarda, sin posibilidad de editarlo, el historial de cada cambio de nota (DAT-01).
-
-Decisiones de diseño:
-\begin{itemize}
-  \item \textbf{Borrador antes de publicar.} Calificar no muestra la nota: el docente revisa el libro y
-        publica la columna entera con \texttt{POST /grade-items/\{gradeItemId\}/post}, que emite un
-        \texttt{grade.posted} por alumno. Las notas se guardan con su evento en transacciones de hasta 50
-        notas (el límite de DynamoDB es de 100 escrituras).
-  \item \textbf{Ajustes con motivo.} \texttt{PATCH /grades/\{gradeId\}} cambia la nota con un motivo
-        obligatorio y emite \texttt{grade.changed} (\texttt{MANUAL\_OVERRIDE}). Si la nota ya estaba
-        publicada, emite también \texttt{grade.posted} con el valor nuevo.
-  \item \textbf{Cambios en orden y sin pisarse.} Si el alumno ya tenía nota en esa columna, se actualiza y
-        sube la versión. Una calificación más vieja que el último cambio (por ejemplo, un ajuste manual
-        posterior) se descarta, y si el puntaje no cambió no se escribe nada.
-  \item \textbf{Una sola consulta por curso.} Las columnas y las notas van bajo
-        \texttt{COURSE\#<courseId>\#}, así que el libro de notas completo sale de una consulta por prefijo.
-\end{itemize}
-
-Roles: el \textbf{TEACHER} matriculado como docente del curso ve el libro de notas, publica columnas y
-ajusta notas; el \textbf{STUDENT} ve solo sus notas publicadas (\texttt{GET /courses/\{courseId\}/grades/me});
-el historial de una nota lo ven el TEACHER del curso y el \textbf{ADMIN}. Quién es docente o alumno de cada
-curso sale de la proyección de \texttt{enrollment.created/dropped}.
+\pendiente{Dos o tres párrafos: qué resuelve este microservicio, decisiones de diseño y qué roles (STUDENT, TEACHER, ADMIN) usan cada operación.}
 
 \subsubsection{Endpoints}
 \begin{table}[htbp]
@@ -62,22 +37,7 @@ GET    & \texttt{/grades/\{gradeId\}/history} & TEACHER, ADMIN & --- \\
   \item \texttt{lms.assessment.submission.graded.v1}
 \end{itemize}
 
-\paragraph{Notas publicadas en orden (SNS FIFO).} \texttt{grade.posted} viaja al bus \texttt{lms} como
-cualquier evento y, además, al tópico SNS FIFO \texttt{nubeduca-<stage>-notas.fifo} (de \texttt{infra/bus}),
-para que la nota publicada llegue en orden a sus consumidores. ms-notificaciones la lee solo de su cola
-SQS FIFO suscrita a ese tópico, y no de una regla del bus, para no avisar dos veces. El orden se garantiza
-así:
-\begin{itemize}
-  \item El outbox escribe el evento en la misma transacción que la nota, y todos los eventos de un tenant van
-        en la misma partición de la tabla, así que el DynamoDB Stream los entrega en el orden en que se
-        escribieron.
-  \item La Lambda \texttt{relayNotas} (\texttt{relay/stream\_a\_sns.py}) los publica uno por uno, en ese
-        orden, con \texttt{MessageGroupId = <tenantId>:<courseId>}. SNS FIFO y la cola FIFO del consumidor
-        conservan el orden dentro de cada curso.
-  \item Si una publicación falla, el Stream reintenta el lote completo sin saltarse nada. Con
-        \texttt{MessageDeduplicationId = eventId}, lo que ya se había publicado se descarta en SNS, y el
-        inbox del consumidor también descarta duplicados.
-\end{itemize}
+\pendiente{Explicar la publicación de notas en el tópico SNS FIFO \texttt{nubeduca-<stage>-notas.fifo} (\texttt{MessageGroupId = <tenantId>:<courseId>}).}
 
 \subsubsection{Auditoría de notas (DAT-01)}
 \textit{Responsable: Alexander.}
