@@ -92,7 +92,12 @@ producción con autenticación Cognito.
 \texttt{perf/k6/carga\_cursos.js} (k6) lista cursos y abre uno, repartiendo las peticiones entre
 UTEC, UPC y PUCP en proporción 15/10/5 y usando como usuarios a los docentes del seed. Tiene dos
 perfiles: \texttt{corto} (5 usuarios virtuales, 1{,}5\,min, para \texttt{dev}) y \texttt{estres}
-(hasta 100 usuarios virtuales, para staging). \texttt{perf/tokens/generar\_tokens.sh} obtiene ID tokens reales para el modo Cognito.
+(hasta 100 usuarios virtuales, preparado para una prueba de estrés en staging).
+\texttt{perf/tokens/generar\_tokens.sh} obtiene ID tokens reales para el modo Cognito.
+
+Las metas son los criterios de éxito del plan de prueba de estrés del documento de arquitectura:
+p95 menor a 300\,ms para lecturas, menor a 1\,s para escrituras y menos de 1\,\% de errores. Los dos
+endpoints probados son lecturas.
 
 Corrida corta del 20-Nov-2026 contra ms-cursos en \texttt{dev} con 30\,000 cursos:
 
@@ -103,19 +108,18 @@ Corrida corta del 20-Nov-2026 contra ms-cursos en \texttt{dev} con 30\,000 curso
 Métrica & Resultado & Meta \\
 \midrule
 Peticiones & 273 (unas 3 por segundo) & --- \\
-Errores & 0\,\% & $<$ 1\,\% \\
-\texttt{GET /courses/\{courseId\}}, p95 & 43\,ms & $<$ 1\,s \\
-\texttt{GET /courses}, p95 & 1{,}84\,s & $<$ 1\,s (no se cumple) \\
+Errores & 0\,\% & $<$ 1\,\% (cumple) \\
+\texttt{GET /courses/\{courseId\}}, p95 & 43\,ms & $<$ 300\,ms (cumple) \\
+\texttt{GET /courses}, p95 & 1{,}84\,s & $<$ 300\,ms (no cumple) \\
 \bottomrule
 \end{tabularx}
-\caption{Resultados de PERF-01. Las metas son provisionales.}
+\caption{Resultados de PERF-01 frente a los criterios del plan de prueba de estrés.}
 \label{tab:perf01}
 \end{table}
 
-El listado tarda unos 1{,}7\,s incluso con un solo usuario, así que no es efecto de la carga sino de
-la consulta: filtra \texttt{ownerId} sobre toda la partición del tenant sin índice
-(sección~\ref{sec:ms-cursos}). Con un índice por docente se espera un p95 de 50 a 100\,ms.
+El listado tarda unos 1{,}7\,s incluso con un solo usuario, así que no es efecto de la carga sino del
+diseño de la consulta: filtra \texttt{ownerId} sobre toda la partición del tenant sin índice
+(sección~\ref{sec:ms-cursos}). Es la principal mejora pendiente: con un índice secundario (GSI) por
+docente, la consulta leería solo sus cursos y se espera un p95 de 50 a 100\,ms, dentro de la meta.
 
 \evidencia{perf01-reporte.png}{Reporte de k6 de la corrida corta de PERF-01.}{fig:perf01}
-
-\pendiente{Ajustar las metas si la sección 13 del documento de arquitectura define otras.}
