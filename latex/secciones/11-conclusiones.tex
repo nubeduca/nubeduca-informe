@@ -45,9 +45,13 @@
         docente quedó como una \texttt{query} de toda la partición del tenant con filtro por
         \texttt{ownerId}, y solo la prueba de carga mostró que con 15\,000 cursos tarda 1{,}7\,s. Cada
         consulta frecuente necesita su clave o su índice desde el diseño de la tabla.
+  \item (Fabricio) Automatizar el despliegue y hacerlo idempotente y agnóstico de cuenta rindió más que
+        cualquier optimización puntual. El Learner Lab caduca las credenciales cada pocas horas y puede
+        cambiar de cuenta, así que un \texttt{desplegar.sh} que corre igual en cualquier lab —con la
+        verificación de la cuenta y la prueba de humo integradas— y una VM que usa el rol de la instancia
+        permitieron reproducir todo el entorno en minutos y recuperarse de un token vencido sin bloquear
+        al equipo.
 \end{itemize}
-
-\pendiente{Falta la lección de Fabricio.}
 
 \subsection{Trabajo futuro}
 Propagar \texttt{traceparent} en los eventos para encadenar la traza entre microservicios, índices
