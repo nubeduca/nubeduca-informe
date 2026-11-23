@@ -47,15 +47,19 @@ caducan a media corrida. No abre ningún puerto: se entra por AWS Systems Manage
 por SSH. En el arranque instala git, Python~3.11, Node y Serverless~v4 y clona
 \texttt{nubeduca-backend}; desde dentro se corre \texttt{scripts/desplegar.sh staging --con-seed}. La
 cuenta de integración (D2) es un único Learner Lab —el de Dev~3— donde se despliega todo lo integrado
-antes de la demo. \pendiente{Confirmar la cuenta de integración oficial cuando el equipo la defina.}
+antes de la demo. El equipo acordó que la cuenta de integración no es un requisito rígido, porque el
+IaC despliega igual en cualquier Learner Lab; el despliegue final de producción y el piloto (REL-02) se
+corrieron en la cuenta de Dev~1.
 
 \subsection{Integración continua}
 Cada repositorio corre GitHub Actions en cada PR: lint (ruff, yamllint) y pruebas con moto (sin AWS).
 \texttt{nubeduca-contratos} valida además los esquemas y su compatibilidad con \texttt{main}. Ramas
 \texttt{<tipo>/<ID>-descripcion}, PR a \texttt{main} y \textit{squash merge}.
 
-\pendiente{Indicar si se activó la protección de \texttt{main} con checks obligatorios (requiere un
-admin de la organización). Mientras no esté activa, el check en rojo avisa pero no impide el merge.}
+La protección de \texttt{main} se activó con el \textit{ruleset} \texttt{proteger-main} en
+\texttt{nubeduca-backend} (checks obligatorios \texttt{tests} y \texttt{lint}) y en
+\texttt{nubeduca-contratos} (check \texttt{validar}): PR obligatorio y bloqueo de \textit{force-push}. En
+los demás repositorios el check avisa pero no impide el \textit{merge}.
 
 \subsection{Observabilidad}
 \begin{itemize}
