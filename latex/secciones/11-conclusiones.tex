@@ -31,6 +31,13 @@
         \texttt{requirements-dev.txt} no fijaba versiones, la CI instalaba siempre la última. Se
         resolvió fijando \texttt{boto3} y \texttt{botocore} por debajo de 1.44.4; fijar solo moto no
         bastaba, porque el cambio venía de boto3.
+  \item (Guillermo) Trabajar contra mocks que respetan el contrato permitió avanzar el frontend sin
+        esperar a los microservicios, y el modo mixto (cada servicio pasa a su API real cuando está
+        listo) evitó un cambio grande al final. Aun así, el paso a la autenticación real trajo
+        sorpresas que los mocks no mostraban: el \textit{authorizer} solo acepta el \textit{ID token}
+        (el \textit{access token} no trae \texttt{custom:tenant\_id} ni \texttt{custom:role}), y los
+        correos por SNS exigen que cada dirección confirme su suscripción. Conviene probar el flujo
+        real de autenticación y de correo lo antes posible, no al final.
 \end{itemize}
 
 \pendiente{Que cada integrante aporte una lección de su parte.}

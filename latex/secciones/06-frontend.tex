@@ -1,17 +1,75 @@
 \section{Frontend}
 \label{sec:frontend}
-\textit{Responsable: Guillermo (FE-01, FE-02, FE-03).}
+\textit{Responsable: Guillermo (FE-01, FE-02, FE-03). Repositorio: \url{https://github.com/nubeduca/nubeduca-frontend}.}
 
-\pendiente{Describir el frontend (React + TypeScript + Vite en AWS Amplify): pantallas para docente y
-estudiante, cómo se conecta a las APIs (variables \texttt{VITE\_API\_*} leídas de SSM por
-\texttt{infra/frontend}) y el modo de autenticación (\texttt{VITE\_AUTH\_MODE}: mock o cognito).}
+El frontend es una aplicación de una sola página (SPA) hecha con React 19, TypeScript, Vite y
+Tailwind CSS, y se publica en AWS Amplify Hosting. Usa un solo código para las tres instituciones:
+la institución (\texttt{tenant}) y el rol (\texttt{STUDENT}, \texttt{TEACHER} o \texttt{ADMIN}) salen de
+la sesión, y algunas rutas se restringen por rol (por ejemplo, la administración de usuarios es solo
+para \texttt{ADMIN}, y las evaluaciones, para docentes y estudiantes).
+
+Las pantallas están organizadas por módulo, uno por microservicio, para que cada integrante pudiera
+agregar las suyas sin pisarse:
+\begin{itemize}
+  \item \textbf{Cursos} (ms-cursos): lista de cursos, detalle del curso con sus módulos y matrícula de estudiantes.
+  \item \textbf{Contenidos} (ms-contenidos): módulos y material del curso.
+  \item \textbf{Evaluaciones} (ms-evaluaciones): el docente crea, edita y publica tareas y revisa las
+        entregas; el estudiante entrega sus archivos.
+  \item \textbf{Calificaciones} (ms-calificaciones): el docente califica con rúbrica y publica las notas
+        por columna del libro de notas, y el estudiante ve sus notas publicadas.
+  \item \textbf{Notificaciones} (ms-notificaciones): bandeja de avisos del usuario y preferencias de correo por tipo de aviso.
+  \item \textbf{Usuarios} (ms-usuarios): gestión de usuarios para el administrador. En el primer inicio
+        de sesión de cualquier usuario se llama a \texttt{POST /users/me}, que es idempotente y crea su
+        perfil.
+\end{itemize}
 
 \subsection{Implementación y decisiones}
-\pendiente{Estructura del proyecto, librerías, manejo de estados de carga y error, y cómo se pasa de
-los mocks (MSW) a las APIs reales.}
+\textbf{Conexión con las APIs.} Cada microservicio tiene su variable \texttt{VITE\_API\_<SERVICIO>} con
+la URL de su API Gateway. No se escriben a mano: cada microservicio publica su URL en SSM
+(\texttt{/nubeduca/<stage>/api/<servicio>/url}) y \texttt{infra/frontend}, en \texttt{nubeduca-backend},
+las lee al crear la app de Amplify. Todas las llamadas pasan por un único cliente
+(\texttt{apiRequest}), que agrega la cabecera \texttt{Authorization}, convierte los errores de la API en
+mensajes y, si recibe un 401, cierra la sesión y vuelve al inicio de sesión. Las pantallas usan hooks
+comunes para la carga, la paginación y los errores, así que todas muestran los mismos estados de
+``cargando'' y de error.
+
+\textbf{De los mocks a las APIs reales.} Mientras los microservicios no estaban listos, el frontend
+trabajó con datos simulados (MSW) que respetan los contratos de \texttt{nubeduca-contratos}. Hay un
+\textbf{modo mixto}: con \texttt{VITE\_USE\_MOCKS=true}, el servicio que tiene su
+\texttt{VITE\_API\_*} usa la API real y el resto sigue con MSW. Así se fueron conectando los servicios
+de a uno (primero ms-notificaciones, luego ms-usuarios y ms-cursos) sin frenar el trabajo de las
+pantallas. Con \texttt{VITE\_USE\_MOCKS=false} todos los servicios van a su API real.
+
+\textbf{Autenticación.} La variable \texttt{VITE\_AUTH\_MODE} elige el modo:
+\begin{itemize}
+  \item \texttt{mock}: inicio de sesión simulado, con un token \texttt{mock.<tenant>.<ROL>.<userId>}. Se
+        usa con los datos simulados y con las APIs en \texttt{authMode=mock}.
+  \item \texttt{cognito}: inicio de sesión real con Amazon Cognito mediante \texttt{aws-amplify}. Es el
+        modo de producción. El cliente manda el \textbf{ID token} (no el \textit{access token}),
+        porque solo el ID token trae \texttt{custom:tenant\_id} y \texttt{custom:role}, que el
+        \textit{authorizer} de API Gateway y los microservicios usan para aislar por institución y
+        por rol. Amplify renueva el token con el \textit{refresh token}. Si el token no trae una
+        institución o un rol válidos, no se entra; y si la cuenta pertenece a otra institución que la
+        elegida en el formulario, se rechaza.
+\end{itemize}
+Los \textit{authorizers} de Cognito de los seis microservicios se activaron con \texttt{authMode=cognito}
+en el despliegue de producción (REL-02).
+
+\textbf{Calidad y publicación.} El repositorio no tiene pruebas automáticas; antes de cada \textit{merge}
+se comprueban el chequeo de tipos de TypeScript (\texttt{npm run typecheck}), el \textit{linter}
+(\texttt{oxlint}) y la compilación (\texttt{npm run build}), y las pantallas de tareas y notas se
+validaron con 36 verificaciones de los flujos sobre los datos simulados. Amplify compila con
+\texttt{npm ci} y \texttt{npm run build} y publica la carpeta \texttt{dist}; la regla de redirección de
+la SPA y las variables \texttt{VITE\_*} las crea \texttt{infra/frontend} como código, en el mismo
+\texttt{desplegar.sh} que levanta los microservicios.
 
 \subsection{Resultados y evidencias}
-\pendiente{URL pública de Amplify y una captura por pantalla principal del flujo del curso piloto.}
+La aplicación está publicada en AWS Amplify en \url{https://main.d1gzmzy708rk08.amplifyapp.com}, con
+inicio de sesión de Amazon Cognito y las APIs reales del stage \texttt{prod}. Se probó el recorrido del
+curso piloto con usuarios de UTEC: el docente ve sus cursos y los módulos con su material (figuras
+\ref{fig:fe-cursos} y \ref{fig:fe-modulo}), y el estudiante entrega una tarea y ve su nota publicada
+(figuras \ref{fig:fe-entrega} y \ref{fig:fe-notas}). Todas las llamadas a las APIs responden con
+estado 200 usando el ID token de Cognito.
 
 \evidencia{frontend-login.png}{Inicio de sesión con Amazon Cognito.}{fig:fe-login}
 \evidencia{frontend-cursos.png}{Lista de cursos del docente.}{fig:fe-cursos}
