@@ -18,6 +18,10 @@ servicio trae 15 pruebas base. También se puede probar en local con LocalStack 
         inválidas, código repetido, periodo no activo, errores por fila del CSV, duplicados y mensajes
         rotos en el consumidor, y el recorrido de \texttt{announcement.published} hasta la cola de
         ms-notificaciones.
+  \item \textbf{ms-evaluaciones:} 44 pruebas (tareas, entregas, consumidor de matrículas y archivos,
+        esquemas y seed): permisos por rol y por dueño, aislamiento por tenant, archivos no verificados
+        o ajenos, entregas fuera de plazo, intentos, paginación, duplicados y eventos viejos en el
+        consumidor, y que los tres eventos publicados cumplen su esquema.
   \item \textbf{ms-contenidos:} 65 pruebas (archivos y antivirus, módulos, consumidores, esquemas y
         seed).
   \item \textbf{ms-calificaciones:} 63 pruebas en total, de las cuales las de la auditoría (DAT-01) cubren
@@ -33,8 +37,9 @@ ms-calificaciones se fijó \texttt{boto3<1.44.4} y \texttt{botocore<1.44.4} en
 \texttt{requirements-dev.txt}.
 En ms-notificaciones no se fijó la versión: no lee Streams (consume de colas SQS), así que el cambio
 de moto no le afecta y sus 23 pruebas pasan con las versiones actuales.
-
-\pendiente{Edinson: número de pruebas de ms-evaluaciones e indicar si fijó la versión.}
+En ms-evaluaciones tampoco se fijó la versión: sus pruebas comprueban el outbox leyendo los ítems
+\texttt{EVENTO\#} de la tabla, sin leer el Stream, así que el cambio de moto no le afecta y sus 44
+pruebas pasan con las versiones actuales.
 
 \subsection{Prueba de punta a punta del curso piloto (QA-01)}
 \textit{Responsable: Alexander.}
