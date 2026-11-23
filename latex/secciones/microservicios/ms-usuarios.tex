@@ -2,7 +2,11 @@
 \label{sec:ms-usuarios}
 \textit{Responsable: Benjamín (ACA-01) y Edinson (ACA-02). Repositorio: \url{https://github.com/nubeduca/nubeduca-ms-usuarios}.}
 
-\pendiente{Dos o tres párrafos: qué resuelve este microservicio, decisiones de diseño y qué roles (STUDENT, TEACHER, ADMIN) usan cada operación.}
+ms-usuarios es la base del resto: guarda las instituciones (tenants), sus periodos académicos y el perfil de cada usuario. Los tres tenants (UTEC, UPC y PUCP) los crea el seed y emite un \texttt{tenant.created} por cada uno. El administrador crea periodos en \texttt{PLANNED} y los inicia (\texttt{ACTIVE}); al iniciarlos se emite \texttt{term.started}, y ms-cursos solo acepta cursos en periodos activos. El nombre de un periodo es único en su tenant gracias a un ítem de reserva \texttt{TERMNAME\#} que se escribe en la misma transacción.
+
+El perfil se crea en el primer login: el frontend llama a \texttt{POST /users/me} justo después de autenticarse. El tenant, el rol y el \texttt{userId} salen del token de Cognito, nunca del cuerpo; el correo y el nombre salen de los \textit{claims}, y lo que falte, junto con el código institucional, sale del padrón \texttt{ROSTER\#<email>} que la institución carga de antemano. La llamada es idempotente: la primera vez responde 201 y emite \texttt{user.provisioned}; las siguientes devuelven el perfil existente con 200 y sin evento. El evento no lleva nombre ni correo, solo el id, el rol y el código: ms-cursos lo usa para traducir el código institucional del CSV de matrícula a un \texttt{userId}, y ms-notificaciones para crear las preferencias por defecto. Un ítem \texttt{USERCODE\#} garantiza que el código no se repita dentro del tenant.
+
+Todos los roles leen su tenant, los periodos y su propio perfil, y pueden cambiar solo su idioma y zona horaria (\texttt{PATCH /users/me}). Docentes y administradores pueden listar y buscar usuarios del tenant, por rol o por código, por ejemplo para armar una matrícula; solo el administrador crea e inicia periodos. Como todo se guarda en la partición de su \texttt{tenant\_id}, un usuario de otra institución recibe 404 aunque conozca el id. ms-usuarios no consume eventos.
 
 \subsubsection{Endpoints}
 \begin{table}[htbp]

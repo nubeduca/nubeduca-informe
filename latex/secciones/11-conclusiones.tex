@@ -38,6 +38,13 @@
         (el \textit{access token} no trae \texttt{custom:tenant\_id} ni \texttt{custom:role}), y los
         correos por SNS exigen que cada dirección confirme su suscripción. Conviene probar el flujo
         real de autenticación y de correo lo antes posible, no al final.
+  \item (Benjamín) Fijar primero los contratos permite trabajar en paralelo: con el catálogo de
+        eventos y los OpenAPI de \texttt{nubeduca-contratos} cerrados al inicio, cada microservicio
+        se construyó contra esquemas validados en CI, sin esperar a los demás. Pero en DynamoDB los
+        patrones de acceso se diseñan junto con el contrato, no después: \texttt{GET /courses} del
+        docente quedó como una \texttt{query} de toda la partición del tenant con filtro por
+        \texttt{ownerId}, y solo la prueba de carga mostró que con 15\,000 cursos tarda 1{,}7\,s. Cada
+        consulta frecuente necesita su clave o su índice desde el diseño de la tabla.
 \end{itemize}
 
 \pendiente{Que cada integrante aporte una lección de su parte.}
