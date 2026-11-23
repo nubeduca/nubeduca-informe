@@ -39,7 +39,7 @@ nudeduca-informe/
 
 | Dev | Archivos | Qué escribir |
 |---|---|---|
-| **Dev 1 · Fabricio** (@cruz-eng) | `07-despliegue-observabilidad.tex` (partes marcadas) · `08-pruebas-rendimiento.tex` (PERF-02) | VM `nubeduca-despliegue`, cuenta de integración (D2), resultado de `desplegar.sh staging` en tu cuenta y en la de integración; PERF-02 si se hace |
+| **Dev 1 · Fabricio** (@cruz-eng) | `07-despliegue-observabilidad.tex` (partes marcadas) · `05-seguridad-multitenant.tex` (captura del login real) | VM `nubeduca-despliegue`, cuenta de integración (D2), resultado de `desplegar.sh staging`, si se activó la protección de `main` y una captura del login con Cognito en producción |
 | **Dev 2 · Mariano** (@MarianoUtec) | `01`, `04` (bus y outbox), `05`, `07` (CI y dashboard), `08` (PERF-01), `09`, `10`, `11`, anexo | **Ya redactado** con lo verificado; falta pegar capturas y consolidar |
 | **Dev 3 · Benjamín** (@btoroled) | `02-arquitectura.tex` · `04-eventos.tex` (tabla de los 16 eventos) · `microservicios/ms-usuarios.tex` y `ms-cursos.tex` (con Edinson) | Revisar la arquitectura, exportar el diagrama, catálogo de eventos y tus microservicios |
 | **Dev 4 · Edinson** (@Edinson695) | `microservicios/ms-evaluaciones.tex` · `ms-calificaciones.tex` (con Benjamín) · `ms-usuarios.tex` y `ms-cursos.tex` (con Benjamín) | Tus microservicios |
