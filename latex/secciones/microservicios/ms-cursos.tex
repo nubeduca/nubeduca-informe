@@ -2,7 +2,11 @@
 \label{sec:ms-cursos}
 \textit{Responsable: Benjamín y Edinson (ACA-03, ACA-04, COL-01). Repositorio: \url{https://github.com/nubeduca/nubeduca-ms-cursos}.}
 
-\pendiente{Dos o tres párrafos: qué resuelve este microservicio, decisiones de diseño y qué roles (STUDENT, TEACHER, ADMIN) usan cada operación.}
+ms-cursos gestiona los cursos de cada periodo, sus secciones, quién está matriculado y los anuncios. Un curso nace en borrador (\texttt{DRAFT}), se publica (\texttt{PUBLISHED}) cuando los alumnos ya pueden verlo y se archiva (\texttt{ARCHIVED}) para dejarlo de solo lectura; cada transición emite su evento y sube la \texttt{aggregateVersion} del curso (1, 2 y 3), así los consumidores descartan los eventos que llegan en desorden. Solo se crean cursos en un periodo activo, y el código del curso (por ejemplo \texttt{CS2032}) es único dentro del periodo gracias a un ítem de reserva \texttt{COURSECODE\#} que va en la misma transacción.
+
+El servicio no llama a ms-usuarios: mantiene dos proyecciones locales alimentadas por eventos. Con \texttt{term.started} guarda qué periodos están activos, y con \texttt{user.provisioned} guarda el rol y el código institucional de cada usuario. Con esa segunda proyección funciona la matrícula por CSV (\texttt{institutionalCode,role,section}, hasta 2\,000 filas): cada fila válida crea una matrícula y emite un \texttt{enrollment.created}, y las filas con error se devuelven con su número de línea y el motivo, sin detener la importación. Cada matrícula se guarda tres veces en una sola transacción: por curso (\texttt{ENROLL\#}, para listar los matriculados), por id (\texttt{ENROLLID\#}, para el \texttt{DELETE}) y por usuario (\texttt{USERCOURSE\#}, para los cursos del alumno), de modo que cada consulta es una \texttt{query} por prefijo. Los anuncios se ordenan por su ULID, del más reciente al más antiguo, y su evento lleva solo el título: el cuerpo se lee con \texttt{GET}.
+
+El tenant y el rol salen siempre del token. El administrador ve y gestiona todos los cursos de su tenant. El docente crea cursos y solo puede editar, publicar, archivar, crear secciones y matricular en los suyos; para publicar un anuncio, además, tiene que estar matriculado como \texttt{TEACHER} en el curso, y el curso debe estar publicado. El alumno solo ve los cursos publicados donde está matriculado, con sus secciones y anuncios; a un curso sin acceso se le responde 404, para no revelar que existe.
 
 \subsubsection{Endpoints}
 \begin{table}[htbp]
@@ -54,10 +58,34 @@ POST   & \texttt{/courses/\{courseId\}/announcements} & TEACHER & \texttt{announ
 incluso con un usuario, mientras que \texttt{GET /courses/\{courseId\}} responde en 43\,ms (p95). Un
 GSI por \texttt{ownerId} lo dejaría en decenas de milisegundos (sección~\ref{sec:pruebas}).
 
-\pendiente{Benjamín/Edinson: indicar si se agregó el índice y, si es así, la latencia nueva.}
+El índice no se agregó antes de la entrega: la tabla de \texttt{serverless.yml} en \texttt{main} sigue
+sin GSI, así que la latencia de \texttt{GET /courses} es la medida en PERF-01. Agregar el GSI por
+\texttt{ownerId} queda como trabajo futuro (sección~\ref{sec:conclusiones}).
 
 \subsubsection{Estructura JSON de la tabla \texttt{<stage>-t\_cursos}}
 Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}.
+
+\begin{table}[htbp]
+\centering\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.46\textwidth}X}
+\toprule
+\texttt{sk} & Qué es \\
+\midrule
+\texttt{COURSE\#<courseId>} & Curso \\
+\texttt{COURSECODE\#<termId>\#<code>} & Reserva del código del curso en el periodo \\
+\texttt{SECTION\#<courseId>\#<sectionId>} & Sección del curso \\
+\texttt{ENROLL\#<courseId>\#<userId>} & Matrícula \\
+\texttt{ENROLLID\#<enrollmentId>} & Puntero a la matrícula, para el \texttt{DELETE} \\
+\texttt{USERCOURSE\#<userId>\#<courseId>} & Cursos de un usuario \\
+\texttt{ANN\#<courseId>\#<announcementId>} & Anuncio \\
+\texttt{PROY\#TERM\#<termId>} & Periodo activo (proyección de \texttt{term.started}) \\
+\texttt{PROY\#USER\#<userId>} & Rol y código del usuario (proyección de \texttt{user.provisioned}) \\
+\texttt{PROY\#USERCODE\#<código>} & Código institucional $\rightarrow$ usuario, para el CSV \\
+\texttt{EVENTO\#}, \texttt{INBOX\#}, \texttt{AGG\#} & Outbox, inbox y versión de agregados de la plantilla \\
+\bottomrule
+\end{tabularx}
+\caption{Prefijos de \texttt{sk} en la tabla de ms-cursos.}
+\end{table}
 
 \begin{lstlisting}
 {
@@ -78,7 +106,126 @@ Clave de partición \texttt{tenant\_id}, clave de ordenamiento \texttt{sk}.
 \end{lstlisting}
 Ítem real leído de la tabla desplegada \texttt{dev-t\_cursos} con \texttt{aws dynamodb get-item} (22-Nov-2026).
 
-\pendiente{Agregar los demás tipos de ítem de la tabla (COURSECODE\#, SECTION\#, ENROLL\#, ENROLLID\#, USERCOURSE\#, anuncios y proyecciones PROY\#).}
+Los demás tipos de ítem muestran los atributos que escribe el código de \texttt{api/} y
+\texttt{consumidores/}, con un curso, un docente y la alumna demo Ana Torres de ejemplo. La reserva
+del código y el puntero de la matrícula:
+
+\begin{lstlisting}
+{
+  "tenant_id": "utec",
+  "sk": "COURSECODE#trm_01JCP0KWJDXF9GJ9YNTK2H84A9#CS2032",
+  "entidad": "COURSECODE",
+  "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7"
+}
+\end{lstlisting}
+
+\begin{lstlisting}
+{
+  "tenant_id": "utec",
+  "sk": "ENROLLID#enr_01JCR1B7Y2K8M4Q6T9V3W5X0Z1",
+  "entidad": "ENROLLMENT_ID",
+  "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7",
+  "userId": "11111111-1111-4111-8111-111111111111"
+}
+\end{lstlisting}
+
+Sección, matrícula y su copia por usuario:
+
+\begin{lstlisting}
+{
+  "tenant_id": "utec",
+  "sk": "SECTION#crs_01JCQRZHQT9F4WY2JYPDV546K7#sec_01JCR0A4T7Q9W2N8M5K3H6G1F0",
+  "entidad": "SECTION",
+  "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7",
+  "sectionId": "sec_01JCR0A4T7Q9W2N8M5K3H6G1F0",
+  "name": "Sección 1",
+  "createdBy": "c62d9930-b473-4b1d-adec-72fdda7cf599",
+  "createdAt": "2026-11-13T15:10:00Z"
+}
+\end{lstlisting}
+
+\begin{lstlisting}
+{
+  "tenant_id": "utec",
+  "sk": "ENROLL#crs_01JCQRZHQT9F4WY2JYPDV546K7#11111111-1111-4111-8111-111111111111",
+  "entidad": "ENROLLMENT",
+  "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7",
+  "version": 1,
+  "enrollmentId": "enr_01JCR1B7Y2K8M4Q6T9V3W5X0Z1",
+  "userId": "11111111-1111-4111-8111-111111111111",
+  "role": "STUDENT",
+  "sectionId": "sec_01JCR0A4T7Q9W2N8M5K3H6G1F0",
+  "createdAt": "2026-11-14T16:00:00Z"
+}
+\end{lstlisting}
+
+\begin{lstlisting}
+{
+  "tenant_id": "utec",
+  "sk": "USERCOURSE#11111111-1111-4111-8111-111111111111#crs_01JCQRZHQT9F4WY2JYPDV546K7",
+  "entidad": "USER_COURSE",
+  "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7",
+  "userId": "11111111-1111-4111-8111-111111111111",
+  "role": "STUDENT",
+  "enrollmentId": "enr_01JCR1B7Y2K8M4Q6T9V3W5X0Z1"
+}
+\end{lstlisting}
+
+Anuncio:
+
+\begin{lstlisting}
+{
+  "tenant_id": "utec",
+  "sk": "ANN#crs_01JCQRZHQT9F4WY2JYPDV546K7#ann_01JCS2D9F4H6K8N0P2R4T6V8X0",
+  "entidad": "ANNOUNCEMENT",
+  "courseId": "crs_01JCQRZHQT9F4WY2JYPDV546K7",
+  "announcementId": "ann_01JCS2D9F4H6K8N0P2R4T6V8X0",
+  "title": "Bienvenidos al curso",
+  "body": "El primer laboratorio es el lunes.",
+  "authorId": "c62d9930-b473-4b1d-adec-72fdda7cf599",
+  "publishedAt": "2026-11-15T14:00:00Z"
+}
+\end{lstlisting}
+
+Proyecciones de los eventos de ms-usuarios:
+
+\begin{lstlisting}
+{
+  "tenant_id": "utec",
+  "sk": "PROY#TERM#trm_01JCP0KWJDXF9GJ9YNTK2H84A9",
+  "entidad": "PROYECCION",
+  "termId": "trm_01JCP0KWJDXF9GJ9YNTK2H84A9",
+  "name": "2026-2",
+  "startsOn": "2026-08-17",
+  "endsOn": "2026-12-12",
+  "status": "ACTIVE",
+  "recibidoDe": "lms.users",
+  "version": 2
+}
+\end{lstlisting}
+
+\begin{lstlisting}
+{
+  "tenant_id": "utec",
+  "sk": "PROY#USER#11111111-1111-4111-8111-111111111111",
+  "entidad": "PROYECCION",
+  "userId": "11111111-1111-4111-8111-111111111111",
+  "role": "STUDENT",
+  "institutionalCode": "202310457",
+  "recibidoDe": "lms.users",
+  "version": 1
+}
+\end{lstlisting}
+
+\begin{lstlisting}
+{
+  "tenant_id": "utec",
+  "sk": "PROY#USERCODE#202310457",
+  "entidad": "PROYECCION",
+  "userId": "11111111-1111-4111-8111-111111111111",
+  "role": "STUDENT"
+}
+\end{lstlisting}
 
 \subsubsection{Datos de prueba}
 El 20-Nov-2026, en la cuenta de Dev 2 (stage \texttt{dev}), \texttt{poblar\_datos.py}

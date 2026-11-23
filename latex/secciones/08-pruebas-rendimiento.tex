@@ -9,6 +9,15 @@ tenant, validación del cuerpo, idempotencia del consumidor y el recorrido del e
 servicio trae 15 pruebas base. También se puede probar en local con LocalStack (LOC-01).
 
 \begin{itemize}
+  \item \textbf{ms-usuarios:} 40 pruebas (tenant, periodos, perfiles y esquemas): permisos por rol,
+        aislamiento por tenant, nombre de periodo repetido, periodo ya iniciado, perfil del primer
+        login idempotente, paginación, seed de tenants y el recorrido de \texttt{term.started} hasta la
+        cola de ms-cursos.
+  \item \textbf{ms-cursos:} 68 pruebas (cursos, secciones, matrícula manual y por CSV, anuncios,
+        consumidores y seed): permisos por rol y por dueño, aislamiento por tenant, transiciones
+        inválidas, código repetido, periodo no activo, errores por fila del CSV, duplicados y mensajes
+        rotos en el consumidor, y el recorrido de \texttt{announcement.published} hasta la cola de
+        ms-notificaciones.
   \item \textbf{ms-contenidos:} 65 pruebas (archivos y antivirus, módulos, consumidores, esquemas y
         seed).
   \item \textbf{ms-calificaciones:} 63 pruebas en total, de las cuales las de la auditoría (DAT-01) cubren
@@ -19,12 +28,13 @@ servicio trae 15 pruebas base. También se puede probar en local con LocalStack 
         repetidos, eventos viejos o en desorden y aislamiento por tenant.
 \end{itemize}
 Las pruebas que leen el Stream fallaban con \texttt{boto3}/\texttt{botocore} 1.44.4 y moto 5.2.5
-(\texttt{DescribeStream: Not yet implemented}). En ms-contenidos y ms-calificaciones se fijó
-\texttt{boto3<1.44.4} y \texttt{botocore<1.44.4} en \texttt{requirements-dev.txt}.
+(\texttt{DescribeStream: Not yet implemented}). En ms-usuarios, ms-cursos, ms-contenidos y
+ms-calificaciones se fijó \texttt{boto3<1.44.4} y \texttt{botocore<1.44.4} en
+\texttt{requirements-dev.txt}.
 En ms-notificaciones no se fijó la versión: no lee Streams (consume de colas SQS), así que el cambio
 de moto no le afecta y sus 23 pruebas pasan con las versiones actuales.
 
-\pendiente{Los demás dueños: número de pruebas de su microservicio e indicar si fijaron la versión.}
+\pendiente{Edinson: número de pruebas de ms-evaluaciones e indicar si fijó la versión.}
 
 \subsection{Prueba de punta a punta del curso piloto (QA-01)}
 \textit{Responsable: Alexander.}

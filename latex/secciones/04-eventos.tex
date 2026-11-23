@@ -17,8 +17,46 @@ ejemplo, que cada ejemplo cumpla su esquema, y compara cada esquema contra \text
 rojo los cambios incompatibles (PLT-02). Como el Learner Lab bloquea EventBridge Schema Registry
 (sección~\ref{sec:limitaciones}), esta validación en CI lo reemplaza.
 
-\pendiente{Benjamín: agregar la tabla de los 16 eventos (productor, consumidores y canal) desde
-\texttt{eventos/catalogo.yaml}.}
+La Tabla~\ref{tab:eventos} resume el catálogo (\texttt{eventos/catalogo.yaml}). Todos los eventos
+viajan por el bus \texttt{lms-<stage>}; \texttt{grade.posted} se publica además en el tópico SNS FIFO de
+notas. Casi todos salen de una operación de la API; las excepciones son \texttt{tenant.created}, que lo
+emite \texttt{poblar\_datos.py} al crear cada tenant, y \texttt{file.scanned}, que lo emite la Lambda de
+antivirus cuando S3 avisa que llegó un archivo. Tres eventos no tienen consumidor todavía
+(\texttt{tenant.created}, \texttt{course.archived} y \texttt{grade.changed}): se publican igual porque
+son hechos del dominio y un servicio nuevo puede suscribirse sin cambiar al productor.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\begin{tabularx}{\textwidth}{l l >{\raggedright\arraybackslash}X l}
+\toprule
+Evento (\texttt{detail-type}) & Productor & Consumidores & Canal \\
+\midrule
+\texttt{lms.users.tenant.created.v1} & ms-usuarios & --- & bus \\
+\texttt{lms.users.term.started.v1} & ms-usuarios & ms-cursos & bus \\
+\texttt{lms.users.user.provisioned.v1} & ms-usuarios & ms-cursos, ms-notificaciones & bus \\
+\midrule
+\texttt{lms.courses.course.created.v1} & ms-cursos & ms-contenidos & bus \\
+\texttt{lms.courses.course.published.v1} & ms-cursos & ms-notificaciones & bus \\
+\texttt{lms.courses.course.archived.v1} & ms-cursos & --- & bus \\
+\texttt{lms.courses.enrollment.created.v1} & ms-cursos & ms-contenidos, ms-evaluaciones, ms-calificaciones, ms-notificaciones & bus \\
+\texttt{lms.courses.enrollment.dropped.v1} & ms-cursos & ms-contenidos, ms-evaluaciones, ms-calificaciones, ms-notificaciones & bus \\
+\texttt{lms.courses.announcement.published.v1} & ms-cursos & ms-notificaciones & bus \\
+\midrule
+\texttt{lms.content.file.scanned.v1} & ms-contenidos & ms-evaluaciones & bus \\
+\texttt{lms.content.module.published.v1} & ms-contenidos & ms-notificaciones & bus \\
+\midrule
+\texttt{lms.assessment.assignment.published.v1} & ms-evaluaciones & ms-calificaciones, ms-notificaciones & bus \\
+\texttt{lms.assessment.submission.submitted.v1} & ms-evaluaciones & ms-notificaciones & bus \\
+\texttt{lms.assessment.submission.graded.v1} & ms-evaluaciones & ms-calificaciones & bus \\
+\midrule
+\texttt{lms.grading.grade.changed.v1} & ms-calificaciones & --- & bus \\
+\texttt{lms.grading.grade.posted.v1} & ms-calificaciones & ms-notificaciones & bus + SNS FIFO \\
+\bottomrule
+\end{tabularx}
+\caption{Los 16 eventos del MVP, con su productor, sus consumidores y su canal
+(\texttt{eventos/catalogo.yaml} de \texttt{nubeduca-contratos}).}
+\label{tab:eventos}
+\end{table}
 
 \subsection{Bus y mensajería (PLT-04)}
 El stack \texttt{infra/bus} del repositorio \texttt{nubeduca-backend} crea por stage:
